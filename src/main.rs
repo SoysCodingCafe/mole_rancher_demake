@@ -6,7 +6,6 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::winit::WinitWindows;
 use bevy::DefaultPlugins;
-use mole_rancher_demake::GamePlugin;
 use std::io::Cursor;
 use winit::window::Icon;
 
@@ -17,7 +16,7 @@ fn main() {
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "Bevy game".to_string(), // ToDo
+                        title: "Mole Rancher Demake".to_string(),
                         // Bind to canvas included in `index.html`
                         canvas: Some("#bevy".to_owned()),
                         fit_canvas_to_parent: true,
@@ -30,9 +29,11 @@ fn main() {
                 .set(AssetPlugin {
                     meta_check: AssetMetaCheck::Never,
                     ..default()
-                }),
+                })
+				// Prevents pixel art sprites from becoming blurry
+				.set(ImagePlugin::default_nearest())
         )
-        .add_plugins(GamePlugin)
+        .add_plugins(mole_rancher_demake::GamePlugin)
         .add_systems(Startup, set_window_icon)
         .run();
 }
