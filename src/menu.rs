@@ -33,7 +33,7 @@ impl Default for ButtonColors {
 struct Menu;
 
 fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
-    info!("menu");
+    //info!("menu");
     commands.spawn((Camera2d, Msaa::Off));
     commands
         .spawn((
@@ -140,11 +140,11 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                         normal: Color::NONE,
                         hovered: Color::linear_rgb(0.25, 0.25, 0.25),
                     },
-                    OpenLink("https://github.com/NiklasEi/bevy_game_template"),
+                    OpenLink("https://github.com/SoysCodingCafe/mole_rancher_demake"),
                 ))
                 .with_children(|parent| {
                     parent.spawn((
-                        Text::new("Open source"),
+                        Text::new("Source Code Available Here"),
                         TextFont {
                             font_size: 15.0,
                             ..default()
