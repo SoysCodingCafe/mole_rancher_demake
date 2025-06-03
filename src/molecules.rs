@@ -151,8 +151,8 @@ fn valid_molecule_combination(mol_a: usize, mol_b: usize) -> Vec<usize> {
 	match mol_a {
 		0 => match mol_b {
 			0 => vec![1],
-			1 => vec![1],
-			_ => vec![],
+			1 => vec![2],
+			_ => vec![3],
 		}
 		1 => match mol_b {
 			_ => vec![],
