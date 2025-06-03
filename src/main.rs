@@ -11,7 +11,7 @@ use winit::window::Icon;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::linear_rgb(0.4, 0.4, 0.4)))
+        .insert_resource(ClearColor(Color::hsv(25.0, 0.33, 0.06)))
         .add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {
@@ -22,6 +22,7 @@ fn main() {
                         fit_canvas_to_parent: true,
                         // Tells wasm not to override default event handling, like F5 and Ctrl+R
                         prevent_default_event_handling: false,
+                        resolution: (1080.0, 810.0).into(),
                         ..default()
                     }),
                     ..default()

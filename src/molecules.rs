@@ -1,5 +1,7 @@
 use crate::GameState;
 use bevy::{prelude::*, window::PrimaryWindow};
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 // Plugin for handling the main physics logic 
 // and molecule spawning
@@ -96,11 +98,12 @@ fn player_movement(
 }
 
 fn spawn_molecules(
-	mut commands: Commands,
+	mut commands: Commands, 
+	asset_server: Res<AssetServer>,
 ) {
 	for mut i in 0..10 {
 		i += 1;
-		spawn_molecule(&mut commands, rand_pos(), rand_vel(), 0, 8.0, 16.0);
+		spawn_molecule(&mut commands, &asset_server, rand_pos(), rand_vel(), 0, 8.0, 16.0);
 		println!("Molecule spawned!");
 	}
 }
@@ -113,26 +116,41 @@ fn rand_pos() -> Vec3 {
 	(Vec2::new((rand::random::<f32>() - 0.5) * 1280.0, (rand::random::<f32>() - 0.5) * 720.0).clamp_length_min(128.0)).extend(0.0)
 }
 
-fn spawn_molecule(commands: &mut Commands, mol_pos: Vec3, mol_vel: Vec2, mol_index: usize, mol_radius: f32, mol_mass: f32) {
+fn spawn_molecule(commands: &mut Commands, asset_server: &AssetServer, mol_pos: Vec3, mol_vel: Vec2, mol_index: usize, mol_radius: f32, mol_mass: f32) {
+	let texture = asset_server.load("textures/circle.png");
+	let colours = [
+	Color::hsv(60.0, 0.82, 0.45),  // Green
+	Color::hsv(53.0, 0.88, 0.74),  // Yellow
+	Color::hsv(10.0, 0.77, 0.75),  // Orange
+	Color::hsv(354.0, 0.45, 0.80), // Pink
+	Color::hsv(281.0, 0.53, 0.32), // Purple
+	Color::hsv(27.0, 0.47, 0.84),  // Tan
+	Color::hsv(32.0, 0.14, 0.77),  // White
+	];
+	
+	let colour = colours[mol_index];
 	commands.spawn((
 			Sprite{
+				image: texture,
+				color: colour,
 				custom_size: Some(Vec2::new(mol_radius*2.0, mol_radius*2.0)),
 				..default()
 			},
-			Transform{
+			Transform {
 				translation: mol_pos,
+				scale: Vec3::splat(mol_radius / 32.0),
 				..default()
 			},
-			MoleculeInfo{
+			MoleculeInfo {
 				vel: mol_vel,
 				index: mol_index,
 				reacted: false,
 				reaction_cooldown: 0.5,
 				radius: mol_radius,
 				mass: mol_mass,
-			}
+			},
 		));
-}
+	}
 
 fn valid_molecule_combination(mol_a: usize, mol_b: usize) -> Vec<usize> {
 	let (mol_a, mol_b) = (mol_a.min(mol_b), mol_a.max(mol_b));
@@ -175,7 +193,7 @@ fn molecule_movement(
 				for output in products {
 					if rand::random::<f32>() < 0.5 {
 						let new_pos = ((transform_a.translation.xy() + transform_b.translation.xy())/2.0).extend(0.0);
-						spawn_molecule(&mut commands, new_pos, rand_vel(), output, 8.0, 16.0);
+						spawn_molecule(&mut commands, &asset_server, new_pos, rand_vel(), output, 8.0, 16.0);
 						println!("Spawning a {output}");
 					}
 				}
