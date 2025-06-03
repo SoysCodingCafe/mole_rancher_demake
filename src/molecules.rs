@@ -1,5 +1,7 @@
 use crate::GameState;
 use bevy::prelude::*;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 // Plugin for handling the main physics logic 
 // and molecule spawning
@@ -29,31 +31,50 @@ pub struct MoleculeInfo {
 }
 
 fn spawn_molecules(
-	mut commands: Commands,
+	mut commands: Commands, asset_server: Res<AssetServer>,
 ) {
+	let texture = asset_server.load("textures/circle.png");
+	let colours = [
+	Color::hsv(60.0, 0.82, 0.45),  // Shrek Green
+	Color::hsv(53.0, 0.88, 0.74),  // Piss Yellow
+	Color::hsv(10.0, 0.77, 0.75),  // Bromine Orange
+	Color::hsv(354.0, 0.45, 0.80), // Hello Kitty Pink
+	Color::hsv(281.0, 0.53, 0.32), // Bruise Purple
+	Color::hsv(27.0, 0.47, 0.84),  // Sandy Cheeks Tan
+	Color::hsv(32.0, 0.14, 0.77),  // Old T-shirt White
+	];
+
 	for i in 0..30 {
-		spawn_molecule(&mut commands, i as f32*Vec3::new(16.0, 0.0, 0.0), Vec2::new(i as f32*16.0, i as f32*32.0), i, 16.0, 16.0);
+		let pos = i as f32 * Vec3::new(16.0, 0.0, 0.0);
+		let vel = Vec2::new(i as f32 * 16.0, i as f32 * 32.0);
+		spawn_molecule(&mut commands, pos, vel, i, 16.0, 16.0, texture.clone(), &colours);
 		println!("Molecule spawned!");
 	}
 }
 
-fn spawn_molecule(commands: &mut Commands, mol_pos: Vec3, mol_vel: Vec2, mol_index: usize, mol_radius: f32, mol_mass: f32) {
+fn spawn_molecule(commands: &mut Commands, mol_pos: Vec3, mol_vel: Vec2, mol_index: usize, mol_radius: f32, mol_mass: f32, texture_handle: Handle<Image>, colours: &[Color]) {
+	// Chooses a random colour for the molecule
+	let mut rng = thread_rng();
+	let colour = *colours.choose(&mut rng).unwrap_or(&Color::WHITE);
+	
 	commands.spawn((
 			Sprite{
-				custom_size: Some(Vec2::new(mol_radius, mol_radius)),
+				image: texture_handle,
+				color: colour,
 				..default()
 			},
-			Transform{
+			Transform {
 				translation: mol_pos,
+				scale: Vec3::splat(mol_radius / 32.0),
 				..default()
 			},
-			MoleculeInfo{
+			MoleculeInfo {
 				vel: mol_vel,
 				index: mol_index,
 				reacted: false,
 				radius: mol_radius,
 				mass: mol_mass,
-			}
+			},
 		));
 }
 
@@ -126,7 +147,7 @@ fn molecule_movement(
 	}
 
 	let origin = Vec2::new(0.0, 0.0);
-	let dimensions = Vec2::new(1280.0, 720.0);
+	let dimensions = Vec2::new(1080.0, 810.0);
 	// Edge collision takes place here
 	for (_, mut m_info, mut transform) in molecule_query.iter_mut() {
 		m_info.reacted = false;
