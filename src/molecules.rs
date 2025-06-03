@@ -1,10 +1,6 @@
 use crate::GameState;
 use bevy::{prelude::*, window::PrimaryWindow};
-use rand::seq::SliceRandom;
-use rand::thread_rng;
 
-// Plugin for handling the main physics logic 
-// and molecule spawning
 pub struct MoleculesPlugin;
 
 impl Plugin for MoleculesPlugin {
@@ -14,11 +10,11 @@ impl Plugin for MoleculesPlugin {
 			spawn_player,
 			spawn_molecules,
 		).chain())
-			.add_systems(Update, (
-				player_movement,
-				molecule_movement,
-				clamp_inside_reactor,
-			).chain().run_if(in_state(GameState::Playing))
+		.add_systems(Update, (
+			player_movement,
+			molecule_movement,
+			clamp_inside_reactor,
+		).chain().run_if(in_state(GameState::Playing))
 		)
 		;
 	}
@@ -93,16 +89,15 @@ fn player_movement(
 		}
 	}
 
-	transform.translation.x = (transform.translation.x + player.vel.x * time.delta_secs()).clamp(-640.0, 640.0);
-	transform.translation.y = (transform.translation.y + player.vel.y * time.delta_secs()).clamp(-360.0, 360.0);
+	transform.translation.x = (transform.translation.x + player.vel.x * time.delta_secs()).clamp(-1280.0/2.0, 1280.0/2.0);
+	transform.translation.y = (transform.translation.y + player.vel.y * time.delta_secs()).clamp(-720.0/2.0, 720.0/2.0);
 }
 
 fn spawn_molecules(
 	mut commands: Commands, 
 	asset_server: Res<AssetServer>,
 ) {
-	for mut i in 0..10 {
-		i += 1;
+	for _ in 0..10 {
 		spawn_molecule(&mut commands, &asset_server, rand_pos(), rand_vel(), 0, 8.0, 16.0);
 		println!("Molecule spawned!");
 	}
@@ -127,7 +122,7 @@ fn spawn_molecule(commands: &mut Commands, asset_server: &AssetServer, mol_pos: 
 	Color::hsv(27.0, 0.47, 0.84),  // Tan
 	Color::hsv(32.0, 0.14, 0.77),  // White
 	];
-	
+
 	let colour = colours[mol_index];
 	commands.spawn((
 			Sprite{
@@ -138,13 +133,12 @@ fn spawn_molecule(commands: &mut Commands, asset_server: &AssetServer, mol_pos: 
 			},
 			Transform {
 				translation: mol_pos,
-				scale: Vec3::splat(mol_radius / 32.0),
 				..default()
 			},
 			MoleculeInfo {
 				vel: mol_vel,
 				index: mol_index,
-				reacted: false,
+				reacted: true,
 				reaction_cooldown: 0.5,
 				radius: mol_radius,
 				mass: mol_mass,
@@ -191,9 +185,11 @@ fn molecule_movement(
 				m_info_a.reaction_cooldown = 1.0;
 				m_info_b.reaction_cooldown = 1.0;
 				for output in products {
-					if rand::random::<f32>() < 0.5 {
+					if rand::random::<f32>() <= 1.0 {
 						let new_pos = ((transform_a.translation.xy() + transform_b.translation.xy())/2.0).extend(0.0);
-						spawn_molecule(&mut commands, &asset_server, new_pos, rand_vel(), output, 8.0, 16.0);
+						let new_radius = (m_info_a.radius + m_info_b.radius)/2.0;
+						let new_mass = ((m_info_a.mass + m_info_b.mass)/2.0).clamp(4.0, 16.0);
+						spawn_molecule(&mut commands, &asset_server, new_pos, rand_vel(), output, new_radius, new_mass);
 						println!("Spawning a {output}");
 					}
 				}
