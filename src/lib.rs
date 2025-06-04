@@ -4,12 +4,14 @@ mod audio;
 mod loading;
 mod menu;
 mod molecules;
+mod player;
 mod postprocess;
 
 use crate::audio::InternalAudioPlugin;
 use crate::loading::LoadingPlugin;
 use crate::menu::MenuPlugin;
 use crate::molecules::MoleculesPlugin;
+use crate::player::PlayerPlugin;
 use crate::postprocess::PostProcessPlugin;
 
 use bevy::app::App;
@@ -41,6 +43,7 @@ impl Plugin for GamePlugin {
             MenuPlugin,
             InternalAudioPlugin,
 			MoleculesPlugin,
+            PlayerPlugin,
         ));
 
         // #[cfg(debug_assertions)]
