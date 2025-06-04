@@ -20,10 +20,12 @@ impl Plugin for PlayerPlugin {
 	}
 }
 
-fn spawn_player(mut commands: Commands) {
+fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let texture = asset_server.load("textures/player.png");
 	let radius = 24.0;
 	commands.spawn((
 		Sprite {
+            image: texture,
 			custom_size: Some(Vec2::new(radius * 2.0, radius * 2.0)),
 			..default()
 		},
@@ -50,11 +52,17 @@ fn player_movement(
 	let (mut player, mut transform) = player_query.single_mut().expect("Could not find player");
 	let window = windows.single().expect("Could not find window");
 	let window_size = Vec2::new(window.width(), window.height());
+
 	if let Some(mut target) = window.cursor_position() {
 		target -= window_size / 2.0;
 		target.y = -target.y;
+
+		let offset = target - transform.translation.xy();
+
+		let angle = offset.y.atan2(offset.x);
+		transform.rotation = Quat::from_rotation_z(angle);
+
 		if player.stun_duration == 0.0 {
-			let offset = target - transform.translation.xy();
 			if offset.length() >= 10.0 {
 				let direction = offset.normalize();
 				player.vel = (player.vel + player.acc * direction * time.delta_secs()).clamp_length_max(player.max_vel);
@@ -70,3 +78,4 @@ fn player_movement(
 	transform.translation.x = (transform.translation.x + player.vel.x * time.delta_secs()).clamp(-540.0, 540.0);
 	transform.translation.y = (transform.translation.y + player.vel.y * time.delta_secs()).clamp(-405.0, 405.0);
 }
+
