@@ -1,7 +1,7 @@
 // disable console on windows for release builds
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use bevy::asset::AssetMetaCheck;
-use bevy::prelude::*;
+use bevy::{prelude::*, text};
 use bevy::window::PrimaryWindow;
 use bevy::winit::WinitWindows;
 use bevy::DefaultPlugins;
@@ -10,7 +10,8 @@ use winit::window::Icon;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::hsv(25.0, 0.33, 0.06)))
+        //.insert_resource(ClearColor(Color::hsv(25.0, 0.33, 0.06)))
+        .add_systems(Startup, (set_window_icon, spawn_background))
         .add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {
@@ -59,4 +60,20 @@ fn set_window_icon(
     };
 
     Ok(())
+}
+
+fn spawn_background(mut commands: Commands, asset_server: Res<AssetServer>) {
+	let texture = asset_server.load("textures/background.png");
+
+	commands.spawn((
+		Sprite {
+            image: texture,
+			custom_size: Some(Vec2::new(1080.0, 810.0)),
+			..default()
+		},
+		Transform {
+			translation: Vec3::new(0.0, 0.0, -1.0),
+			..default()
+		}
+	));
 }

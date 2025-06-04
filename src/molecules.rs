@@ -1,5 +1,6 @@
 use bevy::prelude::*;
-use crate::{GameState, player::PlayerInfo};
+use crate::GameState;
+use crate::player::{PlayerInfo, Weapon};
 
 #[derive(Component)]
 pub struct MoleculeInfo {
