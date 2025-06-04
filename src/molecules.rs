@@ -89,8 +89,8 @@ fn player_movement(
 		}
 	}
 
-	transform.translation.x = (transform.translation.x + player.vel.x * time.delta_secs()).clamp(-1280.0/2.0, 1280.0/2.0);
-	transform.translation.y = (transform.translation.y + player.vel.y * time.delta_secs()).clamp(-720.0/2.0, 720.0/2.0);
+	transform.translation.x = (transform.translation.x + player.vel.x * time.delta_secs()).clamp(-1080.0/2.0, 1080.0/2.0);
+	transform.translation.y = (transform.translation.y + player.vel.y * time.delta_secs()).clamp(-810.0/2.0, 810.0/2.0);
 }
 
 fn spawn_molecules(
@@ -108,7 +108,7 @@ fn rand_vel() -> Vec2 {
 }
 
 fn rand_pos() -> Vec3 {
-	(Vec2::new((rand::random::<f32>() - 0.5) * 1280.0, (rand::random::<f32>() - 0.5) * 720.0).clamp_length_min(128.0)).extend(0.0)
+	(Vec2::new((rand::random::<f32>() - 0.5) * 1080.0, (rand::random::<f32>() - 0.5) * 810.0).clamp_length_min(128.0)).extend(0.0)
 }
 
 fn spawn_molecule(commands: &mut Commands, asset_server: &AssetServer, mol_pos: Vec3, mol_vel: Vec2, mol_index: usize, mol_radius: f32, mol_mass: f32) {
@@ -208,7 +208,7 @@ fn molecule_movement(
 	}
 
 	let origin = Vec2::new(0.0, 0.0);
-	let dimensions = Vec2::new(1280.0, 720.0);
+	let dimensions = Vec2::new(1080.0, 810.0);
 	for (_, mut m_info, mut transform) in molecule_query.iter_mut() {
 		m_info.reacted = false;
 		m_info.reaction_cooldown = (m_info.reaction_cooldown - time.delta_secs()).clamp(0.0, 10.0);
@@ -244,11 +244,11 @@ fn clamp_inside_reactor(
 ) {
 	for (m_info, mut transform) in molecule_query.iter_mut() {
 		let offset = transform.translation.xy().abs();
-		if offset.x > 640.0 - m_info.radius {
-			transform.translation.x = transform.translation.x.signum() * 640.0 - m_info.radius;
+		if offset.x > 540.0 - m_info.radius {
+			transform.translation.x = transform.translation.x.signum() * 540.0 - m_info.radius;
 		}
-		if offset.y > 360.0 - m_info.radius{
-			transform.translation.y = transform.translation.y.signum() * 360.0 - m_info.radius;
+		if offset.y > 405.0 - m_info.radius{
+			transform.translation.y = transform.translation.y.signum() * 405.0 - m_info.radius;
 		}
 	}
 }

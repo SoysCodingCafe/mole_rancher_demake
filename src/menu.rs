@@ -1,5 +1,7 @@
 use crate::loading::TextureAssets;
 use crate::GameState;
+use crate::postprocess::PostProcessSettings;
+
 use bevy::prelude::*;
 
 pub struct MenuPlugin;
@@ -36,7 +38,16 @@ struct Menu;
 pub struct MainCamera;
 
 fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
-	commands.spawn((Camera2d, Msaa::Off, MainCamera));
+	commands.spawn((
+        Camera2d, 
+        MainCamera,
+        PostProcessSettings {
+            intensity: 0.025,
+            scanline_freq: 202.5,
+            line_intensity: 0.1,
+            ..default()
+        },
+    ));
     commands
         .spawn((
             Node {

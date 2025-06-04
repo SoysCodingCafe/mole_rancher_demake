@@ -4,11 +4,13 @@ mod audio;
 mod loading;
 mod menu;
 mod molecules;
+mod postprocess;
 
 use crate::audio::InternalAudioPlugin;
 use crate::loading::LoadingPlugin;
 use crate::menu::MenuPlugin;
 use crate::molecules::MoleculesPlugin;
+use crate::postprocess::PostProcessPlugin;
 
 use bevy::app::App;
 // #[cfg(debug_assertions)]
@@ -34,6 +36,7 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<GameState>().add_plugins((
+            PostProcessPlugin,
             LoadingPlugin,
             MenuPlugin,
             InternalAudioPlugin,

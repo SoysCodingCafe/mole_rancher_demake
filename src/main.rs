@@ -1,6 +1,5 @@
 // disable console on windows for release builds
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 use bevy::asset::AssetMetaCheck;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -22,7 +21,7 @@ fn main() {
                         fit_canvas_to_parent: true,
                         // Tells wasm not to override default event handling, like F5 and Ctrl+R
                         prevent_default_event_handling: false,
-                        resolution: (1280.0, 720.0).into(),
+                        resolution: (1080.0, 810.0).into(),
                         ..default()
                     }),
                     ..default()
