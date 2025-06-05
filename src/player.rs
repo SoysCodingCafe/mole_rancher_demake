@@ -7,6 +7,7 @@ use bevy::{
 	ecs::system::IntoSystem
 };
 use crate::loading::TextureAssets;
+use crate::molecules::Reactor;
 use crate::GameState;
 
 #[derive(Component)]
@@ -55,7 +56,7 @@ fn spawn_player(mut commands: Commands, textures: Res<TextureAssets>) {
 				custom_size: Some(Vec2::splat(radius * 2.0)),
 				..default()
 		},
-		Transform::from_xyz(0.0, 0.0, 100.0),
+		Transform::from_xyz(250.0, 0.0, 100.0),
 		PlayerInfo {
 			vel: Vec2::ZERO,
 			acc: 12000.0,
@@ -109,6 +110,7 @@ fn spawn_player(mut commands: Commands, textures: Res<TextureAssets>) {
 
 fn player_movement(
 	mut player_query: Query<(&mut PlayerInfo, &mut Transform)>,
+	reactor_query: Query<&Transform, (With<Reactor>, Without<PlayerInfo>)>,
 	weapon_pivot_query: Query<&WeaponPivot>,
 	windows: Query<&Window, With<PrimaryWindow>>,
 	time: Res<Time>,
@@ -135,8 +137,15 @@ fn player_movement(
 					transform.rotation = Quat::from_rotation_z(angle);
 				}
 				
-				transform.translation.x = (transform.translation.x + player.vel.x * time.delta_secs()).clamp(-540.0, 540.0);
-				transform.translation.y = (transform.translation.y + player.vel.y * time.delta_secs()).clamp(-405.0, 405.0);
+				let mut move_target: Vec2 = Vec2::ZERO;
+				move_target.x = (transform.translation.x + player.vel.x * time.delta_secs()).clamp(-540.0, 540.0);
+				move_target.y = (transform.translation.y + player.vel.y * time.delta_secs()).clamp(-405.0, 405.0);
+
+				let reactor_loc = reactor_query.single().expect("Could not find reactor");
+
+				if ((move_target - reactor_loc.translation.xy()).length()) > 24.0 + 64.0 {
+					transform.translation = move_target.extend(100.0);
+				} 
 			}
 		} else {
 			player.stun_duration = (player.stun_duration - time.delta_secs()).clamp(0.0, 10.0);
@@ -147,20 +156,24 @@ fn player_movement(
 
 fn weapon_swing(
 	mut mouse_events: EventReader<MouseButtonInput>,
-	mut query: Query<(&mut WeaponPivot, &mut Transform)>,
+	mut weapon_query: Query<(&mut WeaponPivot, &mut Transform)>,
+	player_query: Query<&PlayerInfo>,
 	time: Res<Time>,
 ) {
 	for event in mouse_events.read() {
 		if event.button == MouseButton::Left && event.state.is_pressed() {
-			for (mut weapon_pivot, _) in query.iter_mut() {
-				if !weapon_pivot.swinging {
-					weapon_pivot.time_left = weapon_pivot.max_time;
-					weapon_pivot.held = true;
-					weapon_pivot.swinging = true;
+			let player = player_query.single().expect("Player not found");
+			if player.stun_duration == 0.0 {
+				for (mut weapon_pivot, _) in weapon_query.iter_mut() {
+					if !weapon_pivot.swinging {
+						weapon_pivot.time_left = weapon_pivot.max_time;
+						weapon_pivot.held = true;
+						weapon_pivot.swinging = true;
+					}
 				}
 			}
 		} else {
-			for (mut weapon_pivot, _) in query.iter_mut() {
+			for (mut weapon_pivot, _) in weapon_query.iter_mut() {
 				if weapon_pivot.swinging {
 					weapon_pivot.held = false;
 					weapon_pivot.active = true;
@@ -169,24 +182,28 @@ fn weapon_swing(
 		}
 	}
 
-	for (mut weapon_pivot, mut transform) in query.iter_mut() {
+	let backswing_amount = PI/4.0;
+	let total_angle = PI;
+	let offset_angle = 0.0;
+
+	for (mut weapon_pivot, mut transform) in weapon_query.iter_mut() {
 		if weapon_pivot.held {
-			weapon_pivot.backswing = (weapon_pivot.backswing + time.delta_secs() * 40.0).clamp(0.0, 0.5);
-			let backswing_angle = if weapon_pivot.clockwise_swing {weapon_pivot.backswing * 40.0}
-				else {-weapon_pivot.backswing * 40.0 + 180.0};
-			transform.rotation = Quat::from_rotation_z(backswing_angle.to_radians());
+			weapon_pivot.backswing = (weapon_pivot.backswing + time.delta_secs() * 4.0).clamp(0.0, 0.5);
+			let backswing_angle = if weapon_pivot.clockwise_swing {weapon_pivot.backswing * backswing_amount}
+				else {-weapon_pivot.backswing * backswing_amount + total_angle};
+			transform.rotation = Quat::from_rotation_z(backswing_angle);
 		} else if !weapon_pivot.held && weapon_pivot.swinging {
 			weapon_pivot.time_left = (weapon_pivot.time_left - time.delta_secs()).clamp(0.0, 10.0);
 			let percent = (weapon_pivot.time_left / weapon_pivot.max_time).clamp(0.0, 1.0);
-			let angle = if weapon_pivot.clockwise_swing {((1.0 - percent) * (PI + weapon_pivot.backswing)) - weapon_pivot.backswing}
-				else {percent * (PI + weapon_pivot.backswing) - weapon_pivot.backswing};
+			let angle = if weapon_pivot.clockwise_swing {((1.0 - percent) * (total_angle + weapon_pivot.backswing)) - (weapon_pivot.backswing + offset_angle)}
+				else {percent * (total_angle + weapon_pivot.backswing) - (weapon_pivot.backswing + offset_angle)};
 			transform.rotation = Quat::from_rotation_z(-angle);
 
 			let scale = (1.0 + ((1.0 - percent).powf(0.7) * PI).sin()) * 0.65;
 			transform.scale = Vec2::splat((scale).clamp(1.0, 2.0)).extend(0.0);
 
 			if weapon_pivot.swinging && weapon_pivot.time_left == 0.0 {
-				transform.rotation = if weapon_pivot.clockwise_swing{Quat::from_rotation_z(PI)} else {Quat::IDENTITY};
+				transform.rotation = if weapon_pivot.clockwise_swing{Quat::from_rotation_z(total_angle-offset_angle)} else {Quat::from_rotation_z(offset_angle)};
 				weapon_pivot.swinging = false;
 				weapon_pivot.active = false;
 				weapon_pivot.backswing = 0.0;

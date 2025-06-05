@@ -1,4 +1,6 @@
+use bevy::ecs::system::command;
 use bevy::prelude::*;
+use rand::Rng;
 use crate::GameState;
 use crate::player::{PlayerInfo, WeaponCollider, WeaponPivot};
 use crate::loading::TextureAssets;
@@ -17,13 +19,31 @@ pub struct MoleculesPlugin;
 
 impl Plugin for MoleculesPlugin {
 	fn build(&self, app: &mut App) {
-		app.add_systems(OnEnter(GameState::Playing), spawn_molecules)
+		app.add_systems(OnEnter(GameState::Playing), spawn_reactor)
 			.add_systems(Update, (
+				spawn_molecules,
 				molecule_movement,
 				clamp_inside_reactor,
 				destroy_molecules,
 			).chain().run_if(in_state(GameState::Playing)));
 	}
+}
+
+#[derive(Component)]
+pub struct Reactor;
+
+fn spawn_reactor(
+	mut commands: Commands,
+	textures: Res<TextureAssets>,
+) {
+	commands.spawn((Sprite {
+		image: textures.circle.clone(),
+		custom_size: Some(Vec2::new(128.0, 128.0)),
+		..default()
+	},
+	Transform::from_translation(Vec3::new(0.0, -64.0, 0.0)),
+	Reactor,
+	));
 }
 
 fn rand_vel() -> Vec2 {
@@ -34,9 +54,19 @@ fn rand_pos() -> Vec3 {
 	(Vec2::new((rand::random::<f32>() - 0.5) * 1080.0, (rand::random::<f32>() - 0.5) * 810.0).clamp_length_min(128.0)).extend(0.0)
 }
 
-fn spawn_molecules(mut commands: Commands, textures: Res<TextureAssets>) {
-	for _ in 0..10 {
-		spawn_molecule(&mut commands, &textures, rand_pos(), rand_vel(), 0, 8.0, 16.0);
+fn spawn_molecules(
+	mut commands: Commands,
+	mut spawn_timer: Local<f32>,
+	reactor_query: Query<&Transform, With<Reactor>>,
+	textures: Res<TextureAssets>,
+	time: Res<Time>,
+) {
+	*spawn_timer += time.delta_secs();
+	if *spawn_timer > 1.0 {
+		*spawn_timer -= 1.0;
+		let reactor = reactor_query.single().expect("Could not find reactor");
+		let index = rand::thread_rng().gen_range(0..5);
+		spawn_molecule(&mut commands, &textures, reactor.translation.xy().extend(1.0), rand_vel(), index, get_molecule_radius(index), get_molecule_mass(index));
 	}
 }
 
@@ -74,18 +104,45 @@ fn spawn_molecule(commands: &mut Commands, textures: &Res<TextureAssets>, pos: V
 	));
 }
 
-fn valid_molecule_combination(a: usize, b: usize) -> Vec<usize> {
+pub enum ReactionInfo {
+	Reaction(Vec<usize>),
+	None,
+}
+
+fn valid_molecule_combination(a: usize, b: usize) -> ReactionInfo {
 	let (a, b) = (a.min(b), a.max(b));
 	match a {
 		0 => match b {
-			0 => vec![1],
-			1 => vec![2],
-			_ => vec![3],
+			0 => ReactionInfo::Reaction(vec![1]),
+			_ => ReactionInfo::None,
 		}
 		1 => match b {
-			_ => vec![],
+			1 => ReactionInfo::Reaction(vec![2,2]),
+			_ => ReactionInfo::None,
 		}
-		_ => vec![],
+		2 => match b {
+			2 => ReactionInfo::Reaction(vec![3,3,3]),
+			_ => ReactionInfo::None,
+		}
+		_ => ReactionInfo::None,
+	}
+}
+
+fn get_molecule_radius(index: usize) -> f32 {
+	match index {
+		0 => 8.0,
+		1 => 12.0,
+		2 => 16.0,
+		_ => 6.0,
+	}
+}
+
+fn get_molecule_mass(index: usize) -> f32 {
+	match index {
+		0 => 4.0,
+		1 => 8.0,
+		2 => 25.0,
+		_ => 6.0,
 	}
 }
 
@@ -96,6 +153,10 @@ fn molecule_movement(
 	textures: Res<TextureAssets>,
 	time: Res<Time>,
 ) {
+	let mut molecule_count = 0;
+	for _ in molecule_query.iter() {
+		molecule_count += 1;
+	}
 	let mut iter = molecule_query.iter_combinations_mut();
 	while let Some([
 		(_entity_a, mut m_info_a, mut transform_a),
@@ -106,18 +167,23 @@ fn molecule_movement(
 			continue;
 		}
 		let offset = transform_a.translation.xy() - transform_b.translation.xy();
-		if offset.length() <= m_info_a.radius + m_info_b.radius {
-			let products = valid_molecule_combination(m_info_a.index, m_info_b.index);
-			if !products.is_empty() && m_info_a.reaction_cooldown + m_info_b.reaction_cooldown == 0.0 {
-				m_info_a.reacted = true;
-				m_info_b.reacted = true;
-				m_info_a.reaction_cooldown = 1.0;
-				m_info_b.reaction_cooldown = 1.0;
-				for output in products {
-					let pos = ((transform_a.translation.xy() + transform_b.translation.xy()) / 2.0).extend(0.0);
-					let radius = (m_info_a.radius + m_info_b.radius) / 2.0;
-					let mass = ((m_info_a.mass + m_info_b.mass) / 2.0).clamp(4.0, 16.0);
-					spawn_molecule(&mut commands, &textures, pos, rand_vel(), output, radius, mass);
+		if offset.length() <= m_info_a.radius + m_info_b.radius && molecule_count < 200 {
+			let info = valid_molecule_combination(m_info_a.index, m_info_b.index);
+			match info {
+				ReactionInfo::None => (),
+				ReactionInfo::Reaction(products) => {
+					if m_info_a.reaction_cooldown + m_info_b.reaction_cooldown == 0.0 {
+					m_info_a.reacted = true;
+					m_info_b.reacted = true;
+					m_info_a.reaction_cooldown = 1.0;
+					m_info_b.reaction_cooldown = 1.0;
+					for output in products {
+						let pos = (transform_b.translation.xy() + offset/2.0 + rand::random::<f32>()).extend(0.0);
+						let radius = get_molecule_radius(output);
+						let mass = get_molecule_mass(output);
+						spawn_molecule(&mut commands, &textures, pos, rand_vel(), output, radius, mass);
+						}
+					}
 				}
 			}
 
