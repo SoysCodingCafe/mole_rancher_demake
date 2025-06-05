@@ -24,8 +24,6 @@ impl Plugin for LoadingPlugin {
 
 #[derive(AssetCollection, Resource)]
 pub struct AudioAssets {
-    #[asset(path = "audio/flying.ogg")]
-    pub flying: Handle<AudioSource>,
 	#[asset(path = "audio/2009-03-30-clairdelune.ogg")]
 	pub bgm: Handle<AudioSource>,
 }
@@ -36,4 +34,10 @@ pub struct TextureAssets {
     pub bevy: Handle<Image>,
     #[asset(path = "textures/github.png")]
     pub github: Handle<Image>,
+	#[asset(path = "textures/background.png")]
+    pub background: Handle<Image>,
+	#[asset(path = "textures/player.png")]
+    pub player: Handle<Image>,
+	#[asset(path = "textures/weapon.png")]
+    pub weapon: Handle<Image>,
 }

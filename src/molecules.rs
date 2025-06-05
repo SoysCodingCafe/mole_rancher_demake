@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::GameState;
-use crate::player::{PlayerInfo, Weapon};
+use crate::player::PlayerInfo;
 
 #[derive(Component)]
 pub struct MoleculeInfo {
@@ -74,8 +74,8 @@ fn molecule_movement(
 ) {
 	let mut iter = molecule_query.iter_combinations_mut();
 	while let Some([
-		(entity_a, mut m_info_a, mut transform_a),
-		(entity_b, mut m_info_b, mut transform_b),
+		(_entity_a, mut m_info_a, mut transform_a),
+		(_entity_b, mut m_info_b, mut transform_b),
 	]) = iter.fetch_next()
 	{
 		if m_info_a.reacted || m_info_b.reacted {
@@ -122,7 +122,7 @@ fn molecule_movement(
 		}
 	}
 
-	let (mut p_info, mut p_transform) = player_query.single_mut().expect("Could not find player");
+	let (mut p_info, p_transform) = player_query.single_mut().expect("Could not find player");
 	for (entity, _, m_transform) in molecule_query.iter_mut() {
 		let offset = p_transform.translation.xy() - m_transform.translation.xy();
 		if offset.length() <= p_info.radius + 8.0 {

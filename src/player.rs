@@ -4,6 +4,7 @@ use bevy::{
 	input::mouse::MouseButtonInput, 
 	ecs::system::IntoSystem
 };
+use crate::loading::TextureAssets;
 use crate::GameState;
 
 #[derive(Component)]
@@ -12,7 +13,6 @@ pub struct PlayerInfo {
 	pub acc: f32,
 	pub max_vel: f32,
 	pub radius: f32,
-	pub mass: f32,
 	pub stun_duration: f32,
 }
 
@@ -35,9 +35,7 @@ impl Plugin for PlayerPlugin {
 #[derive(Component)]
 pub struct Weapon;
 
-fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
-	let player_texture = asset_server.load("textures/player.png");
-	let weapon_texture = asset_server.load("textures/weapon.png");
+fn spawn_player(mut commands: Commands, textures: Res<TextureAssets>) {
 	let radius = 24.0;
 	commands.spawn((
 		Transform::from_xyz(0.0, 0.0, 100.0),
@@ -48,13 +46,12 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
 			acc: 12000.0,
 			max_vel: 240.0,
 			radius,
-			mass: 99999.0,
 			stun_duration: 0.0,
 		},
 	)).with_children(move |parent| {
 		parent.spawn((
 			Sprite {
-				image: player_texture.clone(),
+				image: textures.player.clone(),
 				custom_size: Some(Vec2::splat(radius * 2.0)),
 				..default()
 			},
@@ -68,7 +65,7 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
 		)).with_children(|weapon| {
 			weapon.spawn((
 				Sprite {
-					image: weapon_texture.clone(),
+					image: textures.weapon.clone(),
 					custom_size: Some(Vec2::new(8.0, 32.0)),
 					..default()
 				},
