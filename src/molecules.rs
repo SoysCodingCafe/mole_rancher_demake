@@ -15,6 +15,11 @@ pub struct MoleculeInfo {
 	pub mass: f32,
 }
 
+#[derive(Component)]
+pub struct BulletInfo{
+	radius: f32,
+}
+
 pub struct MoleculesPlugin;
 
 impl Plugin for MoleculesPlugin {
@@ -23,6 +28,7 @@ impl Plugin for MoleculesPlugin {
 			.add_systems(Update, (
 				spawn_molecules,
 				molecule_movement,
+				move_bullet,
 				clamp_inside_reactor,
 				destroy_molecules,
 			).chain().run_if(in_state(GameState::Playing)));
@@ -41,7 +47,8 @@ fn spawn_reactor(
 		custom_size: Some(Vec2::new(128.0, 128.0)),
 		..default()
 	},
-	Transform::from_translation(Vec3::new(0.0, -64.0, 0.0)),
+	Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+	Visibility::Hidden,
 	Reactor,
 	));
 }
@@ -104,6 +111,54 @@ fn spawn_molecule(commands: &mut Commands, textures: &Res<TextureAssets>, pos: V
 	));
 }
 
+fn spawn_bullet(commands: &mut Commands, textures: &Res<TextureAssets>, pos: Vec3, radius: f32) {
+	let colours = [
+		Color::hsv(60.0, 0.82, 0.45),
+		Color::hsv(53.0, 0.88, 0.74),
+		Color::hsv(10.0, 0.77, 0.75),
+		Color::hsv(354.0, 0.45, 0.80),
+		Color::hsv(281.0, 0.53, 0.32),
+		Color::hsv(27.0, 0.47, 0.84),
+		Color::hsv(32.0, 0.14, 0.77),
+	];
+	let colour = colours[5];
+
+	commands.spawn((
+		Sprite {
+			image: textures.circle.clone(),
+			color: colour,
+			custom_size: Some(Vec2::new(radius * 2.0, radius * 2.0)),
+			..default()
+		},
+		Transform {
+			translation: pos,
+			..default()
+		},
+		BulletInfo {
+			radius,
+		},
+	));
+}
+
+fn move_bullet(
+	mut commands: Commands,
+	mut player_query: Query<(&Transform, &mut PlayerInfo)>,
+	mut bullet_query: Query<(Entity, &mut Transform), (With<BulletInfo>, Without<PlayerInfo>)>,
+	time: Res<Time>,
+) {
+	let (p_transform, mut p_info) = player_query.single_mut().expect("Could not find player");
+	for (entity, mut b_transform) in bullet_query.iter_mut() {
+		let offset = p_transform.translation.xy() - b_transform.translation.xy();
+		if offset.length() < 6.0 + 24.0 {
+			p_info.stun_duration = 0.4;
+			p_info.lives -= 1.0;
+			commands.entity(entity).despawn();
+		} else {
+			b_transform.translation = (b_transform.translation.xy() + (120.0 * offset.normalize() * time.delta_secs())).extend(1.0);
+		}
+	}
+}
+
 pub enum ReactionInfo {
 	Reaction(Vec<usize>),
 	None,
@@ -121,7 +176,7 @@ fn valid_molecule_combination(a: usize, b: usize) -> ReactionInfo {
 			_ => ReactionInfo::None,
 		}
 		2 => match b {
-			2 => ReactionInfo::Reaction(vec![3,3,3]),
+			2 => ReactionInfo::Reaction(vec![101]),
 			_ => ReactionInfo::None,
 		}
 		_ => ReactionInfo::None,
@@ -173,15 +228,24 @@ fn molecule_movement(
 				ReactionInfo::None => (),
 				ReactionInfo::Reaction(products) => {
 					if m_info_a.reaction_cooldown + m_info_b.reaction_cooldown == 0.0 {
-					m_info_a.reacted = true;
-					m_info_b.reacted = true;
-					m_info_a.reaction_cooldown = 1.0;
-					m_info_b.reaction_cooldown = 1.0;
-					for output in products {
-						let pos = (transform_b.translation.xy() + offset/2.0 + rand::random::<f32>()).extend(0.0);
-						let radius = get_molecule_radius(output);
-						let mass = get_molecule_mass(output);
-						spawn_molecule(&mut commands, &textures, pos, rand_vel(), output, radius, mass);
+						m_info_a.reacted = true;
+						m_info_b.reacted = true;
+						m_info_a.reaction_cooldown = 1.0;
+						m_info_b.reaction_cooldown = 1.0;
+						for output in products {
+							let pos = (transform_b.translation.xy() + offset/2.0 + rand::random::<f32>()).extend(0.0);
+							if output < 100 {
+								let radius = get_molecule_radius(output);
+								let mass = get_molecule_mass(output);
+								spawn_molecule(&mut commands, &textures, pos, rand_vel(), output, radius, mass);
+							} else {
+								match output {
+									101 => {
+										spawn_bullet(&mut commands, &textures, pos, 6.0);
+									}
+									_ => (),
+								}
+							}
 						}
 					}
 				}
@@ -216,6 +280,7 @@ fn molecule_movement(
 	for (entity, _, m_transform) in molecule_query.iter_mut() {
 		let offset = p_transform.translation.xy() - m_transform.translation.xy();
 		if offset.length() <= p_info.radius + 8.0 {
+			p_info.lives -= 1.0;
 			p_info.stun_duration = 0.4;
 			commands.entity(entity).despawn();
 		}
@@ -236,16 +301,31 @@ fn clamp_inside_reactor(mut molecule_query: Query<(&MoleculeInfo, &mut Transform
 
 fn destroy_molecules(
 	mut commands: Commands,
+	mut player_query: Query<&mut PlayerInfo>,
 	molecule_query: Query<(Entity, &MoleculeInfo, &Transform)>,
+	bullet_query: Query<(Entity, &BulletInfo, &Transform), Without<MoleculeInfo>>,
 	weapon_collider_query: Query<&GlobalTransform, With<WeaponCollider>>,
 	weapon_pivot_query: Query<&WeaponPivot>,
 ) {
+	let mut p_info = player_query.single_mut().expect("Could not find player");
 	for weapon in weapon_pivot_query.iter(){
 		if weapon.active {
 			for (entity, m_info, m_transform) in molecule_query.iter() {
 				for w_transform in weapon_collider_query.iter() {
 					let offset = m_transform.translation.xy() - w_transform.translation().xy();
 					if offset.length() <= m_info.radius + 6.0 {
+						p_info.score += m_info.index as f32;
+						commands.entity(entity).despawn();
+						break;
+					}
+				}
+			}
+
+			for (entity, b_info, m_transform) in bullet_query.iter() {
+				for w_transform in weapon_collider_query.iter() {
+					let offset = m_transform.translation.xy() - w_transform.translation().xy();
+					if offset.length() <= b_info.radius + 6.0 {
+						p_info.score += 1.0;
 						commands.entity(entity).despawn();
 						break;
 					}

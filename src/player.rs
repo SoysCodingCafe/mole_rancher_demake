@@ -7,11 +7,14 @@ use bevy::{
 	ecs::system::IntoSystem
 };
 use crate::loading::TextureAssets;
-use crate::molecules::Reactor;
+use crate::molecules::{BulletInfo, MoleculeInfo, Reactor};
 use crate::GameState;
 
 #[derive(Component)]
 pub struct PlayerInfo {
+	pub lives: f32,
+	pub time_survived: f32,
+	pub score: f32,
 	pub vel: Vec2,
 	pub acc: f32,
 	pub max_vel: f32,
@@ -27,6 +30,7 @@ struct PlayerControlSet;
 impl Plugin for PlayerPlugin {
 	fn build(&self, app: &mut App) {
 		app.add_systems(OnEnter(GameState::Playing), spawn_player)
+			.add_systems(Update, IntoSystem::into_system(check_player_lives).in_set(PlayerControlSet))
 			.add_systems(Update, IntoSystem::into_system(player_movement).in_set(PlayerControlSet))
 			.add_systems(Update, IntoSystem::into_system(weapon_swing).in_set(PlayerControlSet))
 			.configure_sets(Update, PlayerControlSet.run_if(in_state(GameState::Playing)));
@@ -58,6 +62,9 @@ fn spawn_player(mut commands: Commands, textures: Res<TextureAssets>) {
 		},
 		Transform::from_xyz(250.0, 0.0, 100.0),
 		PlayerInfo {
+			lives: 3.0,
+			time_survived: 0.0,
+			score: 0.0,
 			vel: Vec2::ZERO,
 			acc: 12000.0,
 			max_vel: 240.0,
@@ -151,6 +158,32 @@ fn player_movement(
 			player.stun_duration = (player.stun_duration - time.delta_secs()).clamp(0.0, 10.0);
 			player.vel = Vec2::ZERO;
 		}
+	}
+}
+
+fn check_player_lives(
+	mut commands: Commands,
+	mut player_query: Query<(&mut Transform, &mut PlayerInfo)>,
+	molecule_query: Query<Entity, (With<MoleculeInfo>, Without<PlayerInfo>)>,
+	bullet_query: Query<Entity, (With<BulletInfo>, Without<MoleculeInfo>, Without<PlayerInfo>)>,
+	time: Res<Time>,
+) {
+	let (mut transform, mut p_info) = player_query.single_mut().expect("Could not find player");
+	if p_info.lives <= 0.0 {
+		println!("Score: {}", p_info.score);
+		println!("Time Survived: {}", p_info.time_survived);
+		transform.translation = Vec3::new(250.0, 0.0, 100.0);
+		p_info.lives = 3.0;
+		p_info.score = 0.0;
+		p_info.time_survived = 0.0;
+		for entity in molecule_query.iter() {
+			commands.entity(entity).despawn();
+		}
+		for entity in bullet_query.iter() {
+			commands.entity(entity).despawn();
+		}
+	} else {
+		p_info.time_survived += time.delta_secs();
 	}
 }
 
