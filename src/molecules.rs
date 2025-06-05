@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use crate::GameState;
-use crate::player::PlayerInfo;
+use crate::player::{PlayerInfo, WeaponCollider, WeaponPivot};
+use crate::loading::TextureAssets;
 
 #[derive(Component)]
 pub struct MoleculeInfo {
@@ -20,18 +21,26 @@ impl Plugin for MoleculesPlugin {
 			.add_systems(Update, (
 				molecule_movement,
 				clamp_inside_reactor,
+				destroy_molecules,
 			).chain().run_if(in_state(GameState::Playing)));
 	}
 }
 
-fn spawn_molecules(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn rand_vel() -> Vec2 {
+	Vec2::new(rand::random::<f32>() - 0.5, rand::random::<f32>() - 0.5).normalize() * 260.0
+}
+
+fn rand_pos() -> Vec3 {
+	(Vec2::new((rand::random::<f32>() - 0.5) * 1080.0, (rand::random::<f32>() - 0.5) * 810.0).clamp_length_min(128.0)).extend(0.0)
+}
+
+fn spawn_molecules(mut commands: Commands, textures: Res<TextureAssets>) {
 	for _ in 0..10 {
-		spawn_molecule(&mut commands, &asset_server, rand_pos(), rand_vel(), 0, 8.0, 16.0);
+		spawn_molecule(&mut commands, &textures, rand_pos(), rand_vel(), 0, 8.0, 16.0);
 	}
 }
 
-fn spawn_molecule(commands: &mut Commands, asset_server: &AssetServer, pos: Vec3, vel: Vec2, index: usize, radius: f32, mass: f32) {
-	let texture = asset_server.load("textures/circle.png");
+fn spawn_molecule(commands: &mut Commands, textures: &Res<TextureAssets>, pos: Vec3, vel: Vec2, index: usize, radius: f32, mass: f32) {
 	let colours = [
 		Color::hsv(60.0, 0.82, 0.45),
 		Color::hsv(53.0, 0.88, 0.74),
@@ -45,7 +54,7 @@ fn spawn_molecule(commands: &mut Commands, asset_server: &AssetServer, pos: Vec3
 
 	commands.spawn((
 		Sprite {
-			image: texture,
+			image: textures.circle.clone(),
 			color: colour,
 			custom_size: Some(Vec2::new(radius * 2.0, radius * 2.0)),
 			..default()
@@ -65,11 +74,26 @@ fn spawn_molecule(commands: &mut Commands, asset_server: &AssetServer, pos: Vec3
 	));
 }
 
+fn valid_molecule_combination(a: usize, b: usize) -> Vec<usize> {
+	let (a, b) = (a.min(b), a.max(b));
+	match a {
+		0 => match b {
+			0 => vec![1],
+			1 => vec![2],
+			_ => vec![3],
+		}
+		1 => match b {
+			_ => vec![],
+		}
+		_ => vec![],
+	}
+}
+
 fn molecule_movement(
 	mut commands: Commands,
 	mut molecule_query: Query<(Entity, &mut MoleculeInfo, &mut Transform), Without<PlayerInfo>>,
 	mut player_query: Query<(&mut PlayerInfo, &mut Transform)>,
-	asset_server: Res<AssetServer>,
+	textures: Res<TextureAssets>,
 	time: Res<Time>,
 ) {
 	let mut iter = molecule_query.iter_combinations_mut();
@@ -93,7 +117,7 @@ fn molecule_movement(
 					let pos = ((transform_a.translation.xy() + transform_b.translation.xy()) / 2.0).extend(0.0);
 					let radius = (m_info_a.radius + m_info_b.radius) / 2.0;
 					let mass = ((m_info_a.mass + m_info_b.mass) / 2.0).clamp(4.0, 16.0);
-					spawn_molecule(&mut commands, &asset_server, pos, rand_vel(), output, radius, mass);
+					spawn_molecule(&mut commands, &textures, pos, rand_vel(), output, radius, mass);
 				}
 			}
 
@@ -144,25 +168,23 @@ fn clamp_inside_reactor(mut molecule_query: Query<(&MoleculeInfo, &mut Transform
 	}
 }
 
-fn rand_vel() -> Vec2 {
-	Vec2::new(rand::random::<f32>() - 0.5, rand::random::<f32>() - 0.5).normalize() * 120.0
-}
-
-fn rand_pos() -> Vec3 {
-	(Vec2::new((rand::random::<f32>() - 0.5) * 1080.0, (rand::random::<f32>() - 0.5) * 810.0).clamp_length_min(128.0)).extend(0.0)
-}
-
-fn valid_molecule_combination(a: usize, b: usize) -> Vec<usize> {
-	let (a, b) = (a.min(b), a.max(b));
-	match a {
-		0 => match b {
-			0 => vec![1],
-			1 => vec![2],
-			_ => vec![3],
+fn destroy_molecules(
+	mut commands: Commands,
+	molecule_query: Query<(Entity, &MoleculeInfo, &Transform)>,
+	weapon_collider_query: Query<&GlobalTransform, With<WeaponCollider>>,
+	weapon_pivot_query: Query<&WeaponPivot>,
+) {
+	for weapon in weapon_pivot_query.iter(){
+		if weapon.active {
+			for (entity, m_info, m_transform) in molecule_query.iter() {
+				for w_transform in weapon_collider_query.iter() {
+					let offset = m_transform.translation.xy() - w_transform.translation().xy();
+					if offset.length() <= m_info.radius + 6.0 {
+						commands.entity(entity).despawn();
+						break;
+					}
+				}
+			}
 		}
-		1 => match b {
-			_ => vec![],
-		}
-		_ => vec![],
 	}
 }

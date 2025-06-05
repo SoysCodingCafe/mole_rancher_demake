@@ -40,4 +40,6 @@ pub struct TextureAssets {
     pub player: Handle<Image>,
 	#[asset(path = "textures/weapon.png")]
     pub weapon: Handle<Image>,
+	#[asset(path = "textures/circle.png")]
+	pub circle: Handle<Image>,
 }
