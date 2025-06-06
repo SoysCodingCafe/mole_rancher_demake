@@ -1,4 +1,3 @@
-use bevy::ecs::system::command;
 use bevy::prelude::*;
 use rand::Rng;
 use crate::GameState;
@@ -24,7 +23,8 @@ pub struct MoleculesPlugin;
 
 impl Plugin for MoleculesPlugin {
 	fn build(&self, app: &mut App) {
-		app.add_systems(OnEnter(GameState::Playing), spawn_reactor)
+		app
+			.add_systems(OnEnter(GameState::Playing), spawn_reactor)
 			.add_systems(Update, (
 				spawn_molecules,
 				molecule_movement,
@@ -47,7 +47,7 @@ fn spawn_reactor(
 		custom_size: Some(Vec2::new(128.0, 128.0)),
 		..default()
 	},
-	Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+	Transform::from_translation(Vec3::new(0.0, 0.0, 5.0)),
 	Visibility::Hidden,
 	Reactor,
 	));

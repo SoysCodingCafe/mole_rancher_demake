@@ -25,7 +25,7 @@ fn spawn_background(mut commands: Commands, textures: Res<TextureAssets>) {
 			..default()
 		},
 		Transform {
-			translation: Vec3::new(0.0, 0.0, -1.0),
+			translation: Vec3::new(0.0, 0.0, 0.0),
 			..default()
 		}
 	));
@@ -54,7 +54,8 @@ pub struct MainCamera;
 
 fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
 	commands.spawn((
-        Camera2d, 
+        Camera2d,
+		Transform::from_xyz(0.0, 0.0, 1000.0),
         MainCamera,
         PostProcessSettings {
             intensity: 0.025,
