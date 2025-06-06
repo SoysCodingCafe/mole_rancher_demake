@@ -1,4 +1,5 @@
 use std::f32::consts::PI;
+use std::time::Duration;
 
 use bevy::{
 	prelude::*, 
@@ -24,19 +25,17 @@ pub struct PlayerInfo {
 
 pub struct PlayerPlugin;
 
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-struct PlayerControlSet;
-
 impl Plugin for PlayerPlugin {
 	fn build(&self, app: &mut App) {
 		app.add_systems(OnEnter(GameState::Playing), spawn_player)
-			.add_systems(Update, IntoSystem::into_system(check_player_lives).in_set(PlayerControlSet))
-			.add_systems(Update, IntoSystem::into_system(player_movement).in_set(PlayerControlSet))
-			.add_systems(Update, IntoSystem::into_system(weapon_swing).in_set(PlayerControlSet))
-			.configure_sets(Update, PlayerControlSet.run_if(in_state(GameState::Playing)));
+			.add_systems(Update, (
+				weapon_swing,
+				player_movement,
+				execute_animations,
+				check_player_lives,
+			).chain().run_if(in_state(GameState::Playing)));
 	}
 }
-
 
 #[derive(Component)]
 pub struct WeaponPivot {
@@ -52,14 +51,70 @@ pub struct WeaponPivot {
 #[derive(Component)]
 pub struct WeaponCollider;
 
-fn spawn_player(mut commands: Commands, textures: Res<TextureAssets>) {
+#[derive(Component)]
+struct AnimationConfig {
+    first_sprite_index: usize,
+    last_sprite_index: usize,
+    fps: u8,
+    frame_timer: Timer,
+}
+
+impl AnimationConfig {
+    fn new(first: usize, last: usize, fps: u8) -> Self {
+        Self {
+            first_sprite_index: first,
+            last_sprite_index: last,
+            fps,
+            frame_timer: Self::timer_from_fps(fps),
+        }
+    }
+
+    fn timer_from_fps(fps: u8) -> Timer {
+        Timer::new(Duration::from_secs_f32(1.0 / (fps as f32)), TimerMode::Repeating)
+    }
+}
+
+fn execute_animations(
+	time: Res<Time>,
+	player_query: Query<&PlayerInfo>,
+	mut query: Query<(&mut AnimationConfig, &mut Sprite)>,
+) {
+	let player = player_query.single().expect("Could not find player");
+	for (mut config, mut sprite) in &mut query {
+		config.frame_timer.tick(time.delta());
+		if config.frame_timer.just_finished() {
+			if let Some(atlas) = &mut sprite.texture_atlas {
+				if atlas.index == config.last_sprite_index || player.vel == Vec2::ZERO {
+					atlas.index = config.first_sprite_index;
+				} else {
+					atlas.index += 1;
+				}
+			}
+		}
+	}
+}
+
+fn spawn_player(
+	mut commands: Commands,
+	textures: Res<TextureAssets>,
+	mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+) {
+	let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 12, 1, None, None);
+    let texture_atlas_layout = texture_atlas_layouts.add(layout);
+	let animation_config = AnimationConfig::new(0, 11, 16);
+
 	let radius = 24.0;
 	commands.spawn((
 		Sprite {
-				image: textures.player.clone(),
+				image: textures.rodney.clone(),
 				custom_size: Some(Vec2::splat(radius * 2.0)),
+				texture_atlas: Some(TextureAtlas {
+					layout: texture_atlas_layout.clone(),
+					index: animation_config.first_sprite_index,
+				}),
 				..default()
 		},
+		animation_config,
 		Transform::from_xyz(250.0, 0.0, 100.0),
 		PlayerInfo {
 			lives: 3.0,
@@ -145,14 +200,16 @@ fn player_movement(
 				}
 				
 				let mut move_target: Vec2 = Vec2::ZERO;
-				move_target.x = (transform.translation.x + player.vel.x * time.delta_secs()).clamp(-540.0, 540.0);
-				move_target.y = (transform.translation.y + player.vel.y * time.delta_secs()).clamp(-405.0, 405.0);
+				move_target.x = (transform.translation.x + player.vel.x * time.delta_secs()).clamp(-540.0 + 47.0 + 12.0, 540.0 - 43.0 - 12.0);
+				move_target.y = (transform.translation.y + player.vel.y * time.delta_secs()).clamp(-405.0 + 76.0 + 12.0, 405.0 - 130.0 - 12.0);
 
 				let reactor_loc = reactor_query.single().expect("Could not find reactor");
 
 				if ((move_target - reactor_loc.translation.xy()).length()) > 24.0 + 64.0 {
 					transform.translation = move_target.extend(100.0);
-				} 
+				} else {
+					transform.translation = ((move_target - reactor_loc.translation.xy()).normalize() * (24.0 + 64.0)).extend(100.0);
+				}
 			}
 		} else {
 			player.stun_duration = (player.stun_duration - time.delta_secs()).clamp(0.0, 10.0);
