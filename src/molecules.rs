@@ -1,7 +1,8 @@
 use bevy::prelude::*;
+use bevy_kira_audio::{Audio, AudioControl};
 use crate::GameState;
 use crate::player::{PlayerInfo, WeaponCollider, WeaponPivot};
-use crate::loading::TextureAssets;
+use crate::loading::{AudioAssets, TextureAssets};
 
 #[derive(Component)]
 pub struct MoleculeInfo {
@@ -55,16 +56,18 @@ pub struct SpawnTracker {
 #[derive(Component)]
 pub struct Score{
 	pub highscore: f32,
+	pub hightime: f32,
 }
 
 fn spawn_score(
 	mut commands: Commands,
 ) {
 	commands.spawn((
-		Text2d::new("Score: 0"),
+		Text2d::new("Score: 0\nTime Survived: 0"),
 		Transform::from_xyz(0.0, -405.0 + 32.0, 200.0),
 		Score{
 			highscore: 0.0,
+			hightime: 0.0,
 		},
 	));
 }
@@ -76,7 +79,7 @@ fn update_score(
 	let player = player_query.single().expect("Could not find player");
 	let mut score = score_query.single_mut().expect("Could not find score");
 	if player.lives > 0.0 {
-		score.0 = format!("Score: {}", player.score);
+		score.0 = format!("Score: {}\nTime Survived: {:.2}s", player.score, player.time_survived);
 	}
 }
 
@@ -84,7 +87,7 @@ fn update_highscore(
 	mut score_query: Query<(&mut Text2d, &Score)>,
 ) {
 	let (mut text, score) = score_query.single_mut().expect("Could not find score");
-	text.0 = format!("Highscore: {}", score.highscore);
+	text.0 = format!("Highscore: {}\nLongest Time Survived: {:.2}s", score.highscore, score.hightime);
 }
 
 fn spawn_reactor(
@@ -202,11 +205,11 @@ fn spawn_cross(commands: &mut Commands, textures: &Res<TextureAssets>, index: f3
 	commands.spawn((
 		Sprite {
 			image: textures.cross.clone(),
-			custom_size: Some(Vec2::splat(32.0)),
+			custom_size: Some(Vec2::splat(64.0)),
 			..default()
 		},
 		Transform {
-			translation: Vec3::new(-300.0 * index + 300.0, 320.0, 200.0),
+			translation: Vec3::new(-300.0 * index + 300.0, 330.0, 200.0),
 			..default()
 		},
 		Crosses,
@@ -242,24 +245,38 @@ fn spawn_bullet(commands: &mut Commands, textures: &Res<TextureAssets>, pos: Vec
 	));
 }
 
+fn take_damage(
+	entity: Entity,
+	p_info: &mut PlayerInfo,
+	mut commands: &mut Commands,
+	textures: &Res<TextureAssets>,
+	audio: &Res<Audio>,
+	sfx: &Res<AudioAssets>,
+) {
+	if p_info.invul_duration == 0.0 {
+		p_info.invul_duration = 1.0;
+		p_info.stun_duration = 0.4;
+		p_info.lives -= 1.0;
+		spawn_cross(&mut commands, &textures, p_info.lives as f32);
+		audio.play(sfx.radiation_hit.clone()).with_volume(0.1).with_playback_rate(1.0 - (2.0 - p_info.lives as f64) * 0.2);
+	}
+	commands.entity(entity).despawn();
+}
+
 fn move_bullet(
 	mut commands: Commands,
 	mut player_query: Query<(&Transform, &mut PlayerInfo)>,
 	mut bullet_query: Query<(Entity, &mut Transform), (With<BulletInfo>, Without<PlayerInfo>)>,
 	textures: Res<TextureAssets>,
+	audio: Res<Audio>,
+	sfx: Res<AudioAssets>,
 	time: Res<Time>,
 ) {
 	let (p_transform, mut p_info) = player_query.single_mut().expect("Could not find player");
 	for (entity, mut b_transform) in bullet_query.iter_mut() {
 		let offset = p_transform.translation.xy() - b_transform.translation.xy();
 		if offset.length() < 6.0 + 24.0 {
-			if p_info.invul_duration == 0.0 {
-				p_info.invul_duration = 1.0;
-				p_info.stun_duration = 0.4;
-				p_info.lives -= 1.0;
-				spawn_cross(&mut commands, &textures, p_info.lives as f32);
-			}
-			commands.entity(entity).despawn();
+			take_damage(entity, &mut p_info, &mut commands, &textures, &audio, &sfx);
 		} else {
 			b_transform.translation = (b_transform.translation.xy() + (120.0 * offset.normalize() * time.delta_secs())).extend(1.0);
 		}
@@ -327,6 +344,8 @@ fn molecule_movement(
 	mut molecule_query: Query<(Entity, &mut MoleculeInfo, &mut Transform), Without<PlayerInfo>>,
 	mut player_query: Query<(&mut PlayerInfo, &mut Transform)>,
 	textures: Res<TextureAssets>,
+	audio: Res<Audio>,
+	sfx: Res<AudioAssets>,
 	time: Res<Time>,
 ) {
 	let mut molecule_count = 0;
@@ -405,13 +424,7 @@ fn molecule_movement(
 	for (entity, _, m_transform) in molecule_query.iter_mut() {
 		let offset = p_transform.translation.xy() - m_transform.translation.xy();
 		if offset.length() <= p_info.radius + 8.0 {
-			if p_info.invul_duration == 0.0 {
-				p_info.invul_duration = 1.0;
-				p_info.stun_duration = 0.4;
-				p_info.lives -= 1.0;
-				spawn_cross(&mut commands, &textures, p_info.lives as f32);
-			}
-			commands.entity(entity).despawn();
+			take_damage(entity, &mut p_info, &mut commands, &textures, &audio, &sfx);
 		}
 	}
 }
@@ -441,6 +454,8 @@ fn destroy_molecules(
 	bullet_query: Query<(Entity, &BulletInfo, &Transform), Without<MoleculeInfo>>,
 	weapon_collider_query: Query<&GlobalTransform, With<WeaponCollider>>,
 	weapon_pivot_query: Query<(&Transform, &WeaponPivot)>,
+	audio: Res<Audio>,
+	sfx: Res<AudioAssets>,
 ) {
 	let mut p_info = player_query.single_mut().expect("Could not find player");
 	for (wp_transform, weapon) in weapon_pivot_query.iter(){
@@ -451,6 +466,7 @@ fn destroy_molecules(
 					if offset.length() <= m_info.radius + 6.0 * wp_transform.scale.x {
 						p_info.score += m_info.index as f32 + 1.0;
 						commands.entity(entity).despawn();
+						audio.play(sfx.bounce_and_crackle.clone()).with_volume(0.1).with_playback_rate(0.5 + (rand::random::<f64>()));
 						break;
 					}
 				}

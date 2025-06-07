@@ -26,6 +26,14 @@ impl Plugin for LoadingPlugin {
 pub struct AudioAssets {
 	#[asset(path = "audio/reactor_meltdown.ogg")]
 	pub bgm: Handle<AudioSource>,
+	#[asset(path = "audio/wind_up.ogg")]
+	pub wind_up: Handle<AudioSource>,
+	#[asset(path = "audio/bat_swing.ogg")]
+	pub bat_swing: Handle<AudioSource>,
+	#[asset(path = "audio/bounce_and_crackle.ogg")]
+	pub bounce_and_crackle: Handle<AudioSource>,
+	#[asset(path = "audio/radiation_hit.ogg")]
+	pub radiation_hit: Handle<AudioSource>,
 }
 
 #[derive(AssetCollection, Resource)]

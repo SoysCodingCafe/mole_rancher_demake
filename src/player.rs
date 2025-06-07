@@ -6,7 +6,8 @@ use bevy::{
 	window::PrimaryWindow, 
 	input::mouse::MouseButtonInput, 
 };
-use crate::loading::TextureAssets;
+use bevy_kira_audio::{Audio, AudioControl, AudioInstance, AudioTween};
+use crate::loading::{AudioAssets, TextureAssets};
 use crate::menu::DeathFadeout;
 use crate::molecules::{BulletInfo, Crosses, MoleculeInfo, Reactor, Score};
 use crate::GameState;
@@ -255,7 +256,8 @@ fn check_player_lives(
 		// println!("Score: {}", p_info.score);
 		// println!("Time Survived: {}", p_info.time_survived);
 		let mut score = score_query.single_mut().expect("Could not find score");
-		if p_info.score > score.highscore {score.highscore = p_info.score}; 
+		if p_info.score > score.highscore {score.highscore = p_info.score};
+		if p_info.time_survived > score.hightime {score.hightime = p_info.time_survived}; 
 		p_info.death_countdown = 1.5;
 	} else {
 		p_info.time_survived += time.delta_secs();
@@ -265,8 +267,12 @@ fn check_player_lives(
 fn weapon_swing(
 	mut mouse_events: EventReader<MouseButtonInput>,
 	mut weapon_query: Query<(&mut WeaponPivot, &mut Transform)>,
+	mut audio_instances: ResMut<Assets<AudioInstance>>,
+	mut wind_handle: Local<Handle<AudioInstance>>,
 	player_query: Query<&PlayerInfo>,
 	time: Res<Time>,
+	audio: Res<Audio>,
+	sfx: Res<AudioAssets>,
 ) {
 	for event in mouse_events.read() {
 		if event.button == MouseButton::Left && event.state.is_pressed() {
@@ -277,14 +283,19 @@ fn weapon_swing(
 						weapon_pivot.time_left = weapon_pivot.max_time;
 						weapon_pivot.held = true;
 						weapon_pivot.swinging = true;
+						*wind_handle = audio.play(sfx.wind_up.clone()).with_volume(0.1).with_playback_rate(0.875 + rand::random::<f64>()/4.0).handle();
 					}
 				}
 			}
 		} else {
 			for (mut weapon_pivot, _) in weapon_query.iter_mut() {
-				if weapon_pivot.swinging {
+				if weapon_pivot.swinging && !weapon_pivot.active {
 					weapon_pivot.held = false;
 					weapon_pivot.active = true;
+					if let Some(instance) = audio_instances.get_mut(&**&mut wind_handle) {
+						instance.pause(AudioTween::default());
+					}
+					audio.play(sfx.bat_swing.clone()).with_volume(0.1).with_playback_rate(0.5 + rand::random::<f64>());
 				}
 			}
 		}
