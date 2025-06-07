@@ -179,7 +179,7 @@ fn spawn_molecules(
 		let player = player_query.single().expect("Could not find player");
 		let pos = Vec2::new(reactor.translation.x, reactor.translation.y - 48.0).extend(1.0);
 		let index = spawn_tracker.indices[spawn_tracker.increment];
-		let angle = if spawn_tracker.angles[spawn_tracker.increment] == 361.0 {(player.translation.xy() - reactor.translation.xy()).normalize()} 
+		let angle = if spawn_tracker.angles[spawn_tracker.increment] == 361.0 {(player.translation.xy() - pos.xy()).normalize()} 
 		else {Vec2::from_angle((spawn_tracker.angles[spawn_tracker.increment] as f32).to_radians()).rotate(Vec2::from_angle(90.0_f32.to_radians()))};
 		spawn_molecule(&mut commands, &textures, pos, angle * spawn_tracker.velocities[spawn_tracker.increment], index, get_molecule_radius(index), get_molecule_mass(index));
 		if spawn_tracker.increment == spawn_tracker.max {
