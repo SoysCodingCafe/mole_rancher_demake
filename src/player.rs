@@ -222,14 +222,11 @@ fn player_movement(
 }
 
 fn check_player_lives(
-	mut commands: Commands,
 	mut next_state: ResMut<NextState<GameState>>,
-	mut player_query: Query<(Entity, &mut Transform, &mut PlayerInfo)>,
-	molecule_query: Query<Entity, (With<MoleculeInfo>, Without<PlayerInfo>)>,
-	bullet_query: Query<Entity, (With<BulletInfo>, Without<MoleculeInfo>, Without<PlayerInfo>)>,
+	mut player_query: Query<&mut PlayerInfo>,
 	time: Res<Time>,
 ) {
-	let (p_entity, mut transform, mut p_info) = player_query.single_mut().expect("Could not find player");
+	let mut p_info = player_query.single_mut().expect("Could not find player");
 	if p_info.lives <= 0.0 {
 		println!("Score: {}", p_info.score);
 		println!("Time Survived: {}", p_info.time_survived);

@@ -7,7 +7,7 @@ pub struct RetryPlugin;
 
 impl Plugin for RetryPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Retry), (setup_retry))
+        app.add_systems(OnEnter(GameState::Retry), setup_retry)
             .add_systems(Update, click_retry_button.run_if(in_state(GameState::Retry)))
             .add_systems(OnExit(GameState::Retry), cleanup_retry)
 			;
