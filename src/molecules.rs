@@ -79,7 +79,13 @@ fn update_score(
 	let player = player_query.single().expect("Could not find player");
 	let mut score = score_query.single_mut().expect("Could not find score");
 	if player.lives > 0.0 {
-		score.0 = format!("Score: {}\nTime Survived: {:.2}s", player.score, player.time_survived);
+		let time_surv = if player.time_survived < 59.0 {format!{"{:.2}s", player.time_survived % 60.0}} 
+		else if player.time_survived >= 59.0 && player.time_survived < 60.0 {
+			format!{"59s"}
+		} else {
+			format!{"{:.0}m {:.0}s", (player.time_survived/60.0).floor() % 60.0, player.time_survived.floor() % 60.0}
+		};
+		score.0 = format!("Score: {}\nTime Survived: {}", player.score, time_surv);
 	}
 }
 
@@ -87,7 +93,13 @@ fn update_highscore(
 	mut score_query: Query<(&mut Text2d, &Score)>,
 ) {
 	let (mut text, score) = score_query.single_mut().expect("Could not find score");
-	text.0 = format!("Highscore: {}\nLongest Time Survived: {:.2}s", score.highscore, score.hightime);
+	let time_surv = if score.hightime < 59.5 {format!{"{:.2}s", score.hightime % 60.0}
+	} else if score.hightime >= 59.0 && score.hightime < 60.0 {
+		format!{"59s"}
+	} else {
+		format!{"{:.0}m {:.0}s", (score.hightime/60.0).floor() % 60.0, score.hightime.floor() % 60.0}
+	};
+	text.0 = format!("Highscore: {}\nLongest Time Survived: {:.2}s", score.highscore, time_surv);
 }
 
 fn spawn_reactor(
@@ -109,14 +121,29 @@ fn spawn_reactor(
 	// let mut angles = 			vec![0.0,   180.0, 180.0, 361.0, 361.0, 361.0, 361.0, 361.0, 361.0];
 	// let mut velocities = 		vec![100.0, 150.0, 400.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0];
 
-	let mut times = 			vec![1.0];
-	let mut indices = 		vec![0];
-	let mut angles = 			vec![361.0];
-	let mut velocities = 		vec![260.0];
+	// let mut times = 			vec![1.0];
+	// let mut indices = 		vec![0];
+	// let mut angles = 			vec![361.0];
+	// let mut velocities = 		vec![260.0];
 
-	// for i in 0..10 {
-	// 	times.append(&mut vec![i as f32 + 5.0]);
-	// }
+	let mut times = vec![];
+	let mut indices = vec![];
+	let mut angles = vec![];
+	let mut velocities = vec![];
+
+	for i in 0..10 {
+		times.append(&mut vec![5.0 + i as f32]);
+		indices.append(&mut vec![i % 5]);
+		angles.append(&mut vec![361.0]);
+		velocities.append(&mut vec![100.0 + i as f32 * 2.0]);
+	}
+
+	for i in 0..10 {
+		times.append(&mut vec![15.0 + i as f32 / 2.0]);
+		indices.append(&mut vec![0]);
+		angles.append(&mut vec![361.0]);
+		velocities.append(&mut vec![260.0]);
+	}
 
 	commands.insert_resource(SpawnTracker{
 		timer: 0.0,
@@ -150,10 +177,11 @@ fn spawn_molecules(
 	if spawn_tracker.timer > spawn_tracker.times[spawn_tracker.increment] {
 		let reactor = reactor_query.single().expect("Could not find reactor");
 		let player = player_query.single().expect("Could not find player");
+		let pos = Vec2::new(reactor.translation.x, reactor.translation.y - 48.0).extend(1.0);
 		let index = spawn_tracker.indices[spawn_tracker.increment];
 		let angle = if spawn_tracker.angles[spawn_tracker.increment] == 361.0 {(player.translation.xy() - reactor.translation.xy()).normalize()} 
 		else {Vec2::from_angle((spawn_tracker.angles[spawn_tracker.increment] as f32).to_radians()).rotate(Vec2::from_angle(90.0_f32.to_radians()))};
-		spawn_molecule(&mut commands, &textures, reactor.translation.xy().extend(1.0), angle * spawn_tracker.velocities[spawn_tracker.increment], index, get_molecule_radius(index), get_molecule_mass(index));
+		spawn_molecule(&mut commands, &textures, pos, angle * spawn_tracker.velocities[spawn_tracker.increment], index, get_molecule_radius(index), get_molecule_mass(index));
 		if spawn_tracker.increment == spawn_tracker.max {
 			spawn_tracker.increment = 0;
 			spawn_tracker.timer = 0.0;

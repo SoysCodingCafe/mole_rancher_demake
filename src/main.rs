@@ -6,6 +6,7 @@ use bevy::DefaultPlugins;
 
 fn main() {
     App::new()
+		.insert_resource(ClearColor(Color::linear_rgb(0.0053, 0.0000, 0.0048)))
         .add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {
