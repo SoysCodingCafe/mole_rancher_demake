@@ -133,6 +133,16 @@ fn setup_retry(mut commands: Commands, textures: Res<TextureAssets>) {
                         },
                     ));
                 });
+			children
+                .spawn((
+                    Node {
+                        width: Val::Px(140.0),
+                        height: Val::Px(100.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..Default::default()
+                    },
+                ));
             children
                 .spawn((
                     Button,

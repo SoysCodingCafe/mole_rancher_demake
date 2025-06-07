@@ -8,7 +8,7 @@ use bevy::{
 };
 use crate::loading::TextureAssets;
 use crate::menu::DeathFadeout;
-use crate::molecules::{BulletInfo, MoleculeInfo, Reactor};
+use crate::molecules::{BulletInfo, Crosses, MoleculeInfo, Reactor, Score};
 use crate::GameState;
 
 #[derive(Component)]
@@ -97,7 +97,6 @@ fn execute_animations(
 		}
 		if player.invul_duration > 0.0 {
 			let flicker = ((player.invul_duration * 2.0 * 2.0 * PI - PI/2.0).sin() + 1.0)/2.0;
-			println!("{}, {}", player.invul_duration, flicker);
 			sprite.color = Color::linear_rgb(1.0, 1.0 - flicker, 1.0 - flicker);
 		} else {
 			sprite.color = Color::WHITE;
@@ -240,6 +239,7 @@ fn check_player_lives(
 	mut next_state: ResMut<NextState<GameState>>,
 	mut player_query: Query<&mut PlayerInfo>,
 	mut death_query: Query<&mut Sprite, With<DeathFadeout>>,
+	mut score_query: Query<&mut Score>,
 	time: Res<Time>,
 ) {
 	let mut p_info = player_query.single_mut().expect("Could not find player");
@@ -252,8 +252,10 @@ fn check_player_lives(
 			next_state.set(GameState::Retry);
 		};
 	} else if p_info.lives <= 0.0 {
-		println!("Score: {}", p_info.score);
-		println!("Time Survived: {}", p_info.time_survived);
+		// println!("Score: {}", p_info.score);
+		// println!("Time Survived: {}", p_info.time_survived);
+		let mut score = score_query.single_mut().expect("Could not find score");
+		if p_info.score > score.highscore {score.highscore = p_info.score}; 
 		p_info.death_countdown = 1.5;
 	} else {
 		p_info.time_survived += time.delta_secs();
@@ -325,13 +327,10 @@ fn cleanup_game(
 	molecule_query: Query<Entity, (Without<PlayerInfo>, With<MoleculeInfo>)>,
 	bullet_query: Query<Entity, (Without<PlayerInfo>, Without<MoleculeInfo>, With<BulletInfo>)>,
 	reactor_query: Query<Entity, (Without<PlayerInfo>, Without<MoleculeInfo>, Without<BulletInfo>, With<Reactor>)>,
+	crosses_query: Query<Entity, (Without<PlayerInfo>, Without<MoleculeInfo>, Without<BulletInfo>, Without<Reactor>, With<Crosses>)>,
 ) {
 	let p_entity = player_query.single().expect("Could not find player");
 	commands.entity(p_entity).despawn();
-	// transform.translation = Vec3::new(0.0, 220.0, 100.0);
-	// p_info.lives = 3.0;
-	// p_info.score = 0.0;
-	// p_info.time_survived = 0.0;
 	for entity in molecule_query.iter() {
 		commands.entity(entity).despawn();
 	}
@@ -339,6 +338,9 @@ fn cleanup_game(
 		commands.entity(entity).despawn();
 	}
 	for entity in reactor_query.iter() {
+		commands.entity(entity).despawn();
+	}
+	for entity in crosses_query.iter() {
 		commands.entity(entity).despawn();
 	}
 }

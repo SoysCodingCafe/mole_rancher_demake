@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use rand::Rng;
 use crate::GameState;
 use crate::player::{PlayerInfo, WeaponCollider, WeaponPivot};
 use crate::loading::TextureAssets;
@@ -24,6 +23,9 @@ pub struct MoleculesPlugin;
 impl Plugin for MoleculesPlugin {
 	fn build(&self, app: &mut App) {
 		app
+			.add_systems(OnExit(GameState::Menu), spawn_score)
+			.add_systems(Update, update_score.run_if(in_state(GameState::Playing)))
+			.add_systems(Update, update_highscore.run_if(in_state(GameState::Retry)))
 			.add_systems(OnEnter(GameState::Playing), spawn_reactor)
 			.add_systems(Update, (
 				spawn_molecules,
@@ -43,6 +45,46 @@ pub struct SpawnTracker {
 	timer: f32,
 	increment: usize,
 	max: usize,
+	times: Vec<f32>,
+	indices: Vec<usize>,
+	angles: Vec<f32>,
+	velocities: Vec<f32>,
+	iteration: f32,
+}
+
+#[derive(Component)]
+pub struct Score{
+	pub highscore: f32,
+}
+
+fn spawn_score(
+	mut commands: Commands,
+) {
+	commands.spawn((
+		Text2d::new("Score: 0"),
+		Transform::from_xyz(0.0, -405.0 + 32.0, 200.0),
+		Score{
+			highscore: 0.0,
+		},
+	));
+}
+
+fn update_score(
+	mut score_query: Query<&mut Text2d, With<Score>>,
+	player_query: Query<&PlayerInfo>,
+) {
+	let player = player_query.single().expect("Could not find player");
+	let mut score = score_query.single_mut().expect("Could not find score");
+	if player.lives > 0.0 {
+		score.0 = format!("Score: {}", player.score);
+	}
+}
+
+fn update_highscore(
+	mut score_query: Query<(&mut Text2d, &Score)>,
+) {
+	let (mut text, score) = score_query.single_mut().expect("Could not find score");
+	text.0 = format!("Highscore: {}", score.highscore);
 }
 
 fn spawn_reactor(
@@ -58,10 +100,30 @@ fn spawn_reactor(
 	Visibility::Hidden,
 	Reactor,
 	));
+
+	// let mut times = 			vec![1.0,   3.0,   4.0,   5.0,   5.1,   5.2,   5.3,   5.4,   5.5 ];
+	// let mut indices = 		vec![4,     4,     0,     0,     0,     0,     0,     0,     0];
+	// let mut angles = 			vec![0.0,   180.0, 180.0, 361.0, 361.0, 361.0, 361.0, 361.0, 361.0];
+	// let mut velocities = 		vec![100.0, 150.0, 400.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0];
+
+	let mut times = 			vec![1.0];
+	let mut indices = 		vec![0];
+	let mut angles = 			vec![361.0];
+	let mut velocities = 		vec![260.0];
+
+	// for i in 0..10 {
+	// 	times.append(&mut vec![i as f32 + 5.0]);
+	// }
+
 	commands.insert_resource(SpawnTracker{
 		timer: 0.0,
 		increment: 0,
-		max: 8,
+		max: times.len() - 1,
+		times: times,
+		indices: indices,
+		angles: angles,
+		velocities: velocities,
+		iteration: 0.0,
 	});
 }
 
@@ -81,21 +143,18 @@ fn spawn_molecules(
 	textures: Res<TextureAssets>,
 	time: Res<Time>,
 ) {
-	let times = 			vec![1.0,   3.0,   4.0,   5.0,   5.1,   5.2,   5.3,   5.4,   5.5];
-	let indices = 		vec![4,     1,     0,     0,     0,     0,     0,     0,     0];
-	let angles = 			vec![0.0,   180.0, 180.0, 361.0, 361.0, 361.0, 361.0, 361.0, 361.0];
-	let velocities = 		vec![100.0, 150.0, 400.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0];
-	spawn_tracker.timer += time.delta_secs();
-	if spawn_tracker.timer > times[spawn_tracker.increment] {
+	spawn_tracker.timer += time.delta_secs() * (1.0 + spawn_tracker.iteration/10.0);
+	if spawn_tracker.timer > spawn_tracker.times[spawn_tracker.increment] {
 		let reactor = reactor_query.single().expect("Could not find reactor");
 		let player = player_query.single().expect("Could not find player");
-		let index = indices[spawn_tracker.increment];
-		let angle = if angles[spawn_tracker.increment] == 361.0 {(player.translation.xy() - reactor.translation.xy()).normalize()} 
-		else {Vec2::from_angle((angles[spawn_tracker.increment] as f32).to_radians()).rotate(Vec2::from_angle(90.0_f32.to_radians()))};
-		spawn_molecule(&mut commands, &textures, reactor.translation.xy().extend(1.0), angle * velocities[spawn_tracker.increment], index, get_molecule_radius(index), get_molecule_mass(index));
+		let index = spawn_tracker.indices[spawn_tracker.increment];
+		let angle = if spawn_tracker.angles[spawn_tracker.increment] == 361.0 {(player.translation.xy() - reactor.translation.xy()).normalize()} 
+		else {Vec2::from_angle((spawn_tracker.angles[spawn_tracker.increment] as f32).to_radians()).rotate(Vec2::from_angle(90.0_f32.to_radians()))};
+		spawn_molecule(&mut commands, &textures, reactor.translation.xy().extend(1.0), angle * spawn_tracker.velocities[spawn_tracker.increment], index, get_molecule_radius(index), get_molecule_mass(index));
 		if spawn_tracker.increment == spawn_tracker.max {
 			spawn_tracker.increment = 0;
 			spawn_tracker.timer = 0.0;
+			spawn_tracker.iteration += 1.0;
 		} else{
 			spawn_tracker.increment += 1;
 		}
@@ -136,6 +195,24 @@ fn spawn_molecule(commands: &mut Commands, textures: &Res<TextureAssets>, pos: V
 	));
 }
 
+#[derive(Component)]
+pub struct Crosses;
+
+fn spawn_cross(commands: &mut Commands, textures: &Res<TextureAssets>, index: f32) {
+	commands.spawn((
+		Sprite {
+			image: textures.cross.clone(),
+			custom_size: Some(Vec2::splat(32.0)),
+			..default()
+		},
+		Transform {
+			translation: Vec3::new(-300.0 * index + 300.0, 320.0, 200.0),
+			..default()
+		},
+		Crosses,
+	));
+}
+
 fn spawn_bullet(commands: &mut Commands, textures: &Res<TextureAssets>, pos: Vec3, radius: f32) {
 	let colours = [
 		Color::hsv(60.0, 0.82, 0.45),
@@ -169,6 +246,7 @@ fn move_bullet(
 	mut commands: Commands,
 	mut player_query: Query<(&Transform, &mut PlayerInfo)>,
 	mut bullet_query: Query<(Entity, &mut Transform), (With<BulletInfo>, Without<PlayerInfo>)>,
+	textures: Res<TextureAssets>,
 	time: Res<Time>,
 ) {
 	let (p_transform, mut p_info) = player_query.single_mut().expect("Could not find player");
@@ -179,6 +257,7 @@ fn move_bullet(
 				p_info.invul_duration = 1.0;
 				p_info.stun_duration = 0.4;
 				p_info.lives -= 1.0;
+				spawn_cross(&mut commands, &textures, p_info.lives as f32);
 			}
 			commands.entity(entity).despawn();
 		} else {
@@ -330,6 +409,7 @@ fn molecule_movement(
 				p_info.invul_duration = 1.0;
 				p_info.stun_duration = 0.4;
 				p_info.lives -= 1.0;
+				spawn_cross(&mut commands, &textures, p_info.lives as f32);
 			}
 			commands.entity(entity).despawn();
 		}

@@ -42,4 +42,6 @@ pub struct TextureAssets {
 	pub circle: Handle<Image>,
 	#[asset(path = "textures/rodney.png")]
 	pub rodney: Handle<Image>,
+	#[asset(path = "textures/cross.png")]
+	pub cross: Handle<Image>,
 }
