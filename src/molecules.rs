@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use bevy_kira_audio::{Audio, AudioControl};
 use crate::GameState;
 use crate::player::{PlayerInfo, WeaponCollider, WeaponPivot};
@@ -29,6 +30,7 @@ impl Plugin for MoleculesPlugin {
 			.add_systems(Update, update_highscore.run_if(in_state(GameState::Retry)))
 			.add_systems(OnEnter(GameState::Playing), spawn_reactor)
 			.add_systems(Update, (
+				//level_editor,
 				spawn_molecules,
 				molecule_movement,
 				move_bullet,
@@ -45,12 +47,12 @@ pub struct Reactor;
 pub struct SpawnTracker {
 	timer: f32,
 	increment: usize,
-	max: usize,
-	times: Vec<f32>,
-	indices: Vec<usize>,
-	angles: Vec<f32>,
-	velocities: Vec<f32>,
-	iteration: f32,
+	times: Vec<Vec<f32>>,
+	indices: Vec<Vec<usize>>,
+	velocities: Vec<Vec<Vec2>>,
+	track_player: Vec<Vec<bool>>,
+	level: usize,
+	level_lengths: Vec<usize>,
 }
 
 #[derive(Component)]
@@ -126,35 +128,100 @@ fn spawn_reactor(
 	// let mut angles = 			vec![361.0];
 	// let mut velocities = 		vec![260.0];
 
-	let mut times = vec![];
-	let mut indices = vec![];
-	let mut angles = vec![];
-	let mut velocities = vec![];
+	// let mut times = vec![vec![]];
+	// let mut indices = vec![vec![]];
+	// let mut velocities = vec![vec![]];
+	// let mut track_player = vec![vec![]];
 
-	for i in 0..10 {
-		times.append(&mut vec![5.0 + i as f32]);
-		indices.append(&mut vec![i % 5]);
-		angles.append(&mut vec![361.0]);
-		velocities.append(&mut vec![100.0 + i as f32 * 2.0]);
-	}
+	let times = vec![vec![1.5349127, 2.201693, 2.7517598, 3.168261, 4.352251, 5.0390396, 5.752186, 6.5185313, 8.484857, 8.801608, 9.118443, 10.535108, 10.834695, 11.118693, 11.418816], vec![14.118426, 14.768145, 15.301594, 15.95203, 17.251623, 17.48482, 17.718147, 18.318827, 18.551878, 18.751999, 19.351501, 19.568718, 19.734749, 21.052189, 21.302149, 21.485407]];
+	let indices = vec![vec![0, 0, 0, 0, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0], vec![0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4]];
+	let velocities = vec![vec![Vec2::new(9.5, 108.5), Vec2::new(140.5, -6.0), Vec2::new(-7.0, -111.5), Vec2::new(-134.0, -2.5), Vec2::new(15.0, 80.0), Vec2::new(141.0, -14.0), Vec2::new(-18.0, -117.0), Vec2::new(-139.0, -19.0), Vec2::new(127.5, -32.5), Vec2::new(127.5, -32.5), Vec2::new(127.5, -32.5), Vec2::new(127.5, -32.5), Vec2::new(127.5, -32.5), Vec2::new(127.5, -32.5), Vec2::new(127.5, -32.5)], vec![Vec2::new(150.5, -18.0), Vec2::new(-2.5, 94.5), Vec2::new(-120.5, -5.5), Vec2::new(5.0, -113.0), Vec2::new(0.5, 100.0), Vec2::new(0.5, 100.0), Vec2::new(2.0, 100.0), Vec2::new(129.0, 2.0), 
+Vec2::new(129.0, 2.0), Vec2::new(129.0, 2.0), Vec2::new(-4.5, -115.0), Vec2::new(-4.5, -115.0), Vec2::new(-4.5, -115.0), Vec2::new(-115.5, -14.0), Vec2::new(-115.5, -14.0), Vec2::new(-115.5, -14.0)]];
+	let track_player = vec![vec![false, false, false, false, false, false, false, false, false, false, false, true, true, true, true], vec![false, false, false, false, false, false, false, false, false, false, false, false, false, true, true, true]];
 
-	for i in 0..10 {
-		times.append(&mut vec![15.0 + i as f32 / 2.0]);
-		indices.append(&mut vec![0]);
-		angles.append(&mut vec![361.0]);
-		velocities.append(&mut vec![260.0]);
+	let mut level_lengths = vec![];
+	for i in 0..times.len() {
+		level_lengths.push(times[i].len());
 	}
 
 	commands.insert_resource(SpawnTracker{
 		timer: 0.0,
 		increment: 0,
-		max: times.len() - 1,
 		times: times,
 		indices: indices,
-		angles: angles,
 		velocities: velocities,
-		iteration: 0.0,
+		track_player: track_player,
+		level: 0,
+		level_lengths: level_lengths,
 	});
+}
+
+fn level_editor(
+	mut current_time: Local<f32>,
+	mut spawn_tracker: ResMut<SpawnTracker>,
+	player_query: Query<&PlayerInfo>,
+	windows: Query<&Window, With<PrimaryWindow>>,
+	keys: Res<ButtonInput<KeyCode>>,
+	time: Res<Time>,
+) {
+	*current_time += time.delta_secs();
+	let player = player_query.single().expect("Could not find player");
+	let window = windows.single().expect("Could not find window");
+	let window_size = Vec2::new(window.width(), window.height());
+	if let Some(mut target) = window.cursor_position() {
+		target -= window_size / 2.0;
+		target.y = -target.y;
+		let velocity = target / 2.0;
+		let level = spawn_tracker.level;
+		let tracked = if keys.pressed(KeyCode::Space) {true} else {false};
+		if keys.just_pressed(KeyCode::Digit0) {
+			spawn_tracker.times[level].push(*current_time);
+			spawn_tracker.indices[level].push(0);
+			spawn_tracker.velocities[level].push(velocity);
+			spawn_tracker.track_player[level].push(tracked);
+		}
+		if keys.just_pressed(KeyCode::Digit1) {
+			spawn_tracker.times[level].push(*current_time);
+			spawn_tracker.indices[level].push(1);
+			spawn_tracker.velocities[level].push(velocity);
+			spawn_tracker.track_player[level].push(tracked);
+		}
+		if keys.just_pressed(KeyCode::Digit2) {
+			spawn_tracker.times[level].push(*current_time);
+			spawn_tracker.indices[level].push(2);
+			spawn_tracker.velocities[level].push(velocity);
+			spawn_tracker.track_player[level].push(tracked);
+		}
+		if keys.just_pressed(KeyCode::Digit3) {
+			spawn_tracker.times[level].push(*current_time);
+			spawn_tracker.indices[level].push(3);
+			spawn_tracker.velocities[level].push(velocity);
+			spawn_tracker.track_player[level].push(tracked);
+		}
+		if keys.just_pressed(KeyCode::Digit4) {
+			spawn_tracker.times[level].push(*current_time);
+			spawn_tracker.indices[level].push(4);
+			spawn_tracker.velocities[level].push(velocity);
+			spawn_tracker.track_player[level].push(tracked);
+		}
+		if keys.just_pressed(KeyCode::Digit5) {
+			spawn_tracker.times[level].push(*current_time);
+			spawn_tracker.indices[level].push(5);
+			spawn_tracker.velocities[level].push(velocity);
+			spawn_tracker.track_player[level].push(tracked);
+		}
+		if keys.just_pressed(KeyCode::KeyP) {
+			println!("{:?}\n{:?}\n{:?}\n{:?}", spawn_tracker.times, spawn_tracker.indices, spawn_tracker.velocities, spawn_tracker.track_player);
+		}
+		if keys.just_pressed(KeyCode::KeyL) {
+			spawn_tracker.level += 1;
+			spawn_tracker.times.push(vec![]);
+			spawn_tracker.indices.push(vec![]);
+			spawn_tracker.velocities.push(vec![]);
+			spawn_tracker.track_player.push(vec![]);
+		}
+	}
+
 }
 
 fn rand_vel() -> Vec2 {
@@ -173,20 +240,24 @@ fn spawn_molecules(
 	textures: Res<TextureAssets>,
 	time: Res<Time>,
 ) {
-	spawn_tracker.timer += time.delta_secs() * (1.0 + spawn_tracker.iteration/10.0);
-	if spawn_tracker.timer > spawn_tracker.times[spawn_tracker.increment] {
+	spawn_tracker.timer += time.delta_secs() * (1.0 + spawn_tracker.level as f32/20.0);
+	if spawn_tracker.timer > spawn_tracker.times[spawn_tracker.level][spawn_tracker.increment] {
 		let reactor = reactor_query.single().expect("Could not find reactor");
 		let player = player_query.single().expect("Could not find player");
 		let pos = Vec2::new(reactor.translation.x, reactor.translation.y - 48.0).extend(1.0);
-		let index = spawn_tracker.indices[spawn_tracker.increment];
-		let angle = if spawn_tracker.angles[spawn_tracker.increment] == 361.0 {(player.translation.xy() - pos.xy()).normalize()} 
-		else {Vec2::from_angle((spawn_tracker.angles[spawn_tracker.increment] as f32).to_radians()).rotate(Vec2::from_angle(90.0_f32.to_radians()))};
-		spawn_molecule(&mut commands, &textures, pos, angle * spawn_tracker.velocities[spawn_tracker.increment], index, get_molecule_radius(index), get_molecule_mass(index));
-		if spawn_tracker.increment == spawn_tracker.max {
+		let index = spawn_tracker.indices[spawn_tracker.level][spawn_tracker.increment];
+		let angle = if spawn_tracker.track_player[spawn_tracker.level][spawn_tracker.increment] {(player.translation.xy() - pos.xy()).normalize()} 
+		else {spawn_tracker.velocities[spawn_tracker.level][spawn_tracker.increment].normalize()};
+		spawn_molecule(&mut commands, &textures, pos, angle * spawn_tracker.velocities[spawn_tracker.level][spawn_tracker.increment].length(), index, get_molecule_radius(index), get_molecule_mass(index));
+		if spawn_tracker.increment == spawn_tracker.level_lengths[spawn_tracker.level] - 1 {
 			spawn_tracker.increment = 0;
 			spawn_tracker.timer = 0.0;
-			spawn_tracker.iteration += 1.0;
-		} else{
+			if spawn_tracker.level == spawn_tracker.level_lengths.len() - 1 {
+				spawn_tracker.level += 1;
+			} else {
+				spawn_tracker.level = 0;
+			}
+		} else {
 			spawn_tracker.increment += 1;
 		}
 	}
