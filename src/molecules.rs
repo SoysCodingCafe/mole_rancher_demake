@@ -38,6 +38,13 @@ impl Plugin for MoleculesPlugin {
 #[derive(Component)]
 pub struct Reactor;
 
+#[derive(Resource)]
+pub struct SpawnTracker {
+	timer: f32,
+	increment: usize,
+	max: usize,
+}
+
 fn spawn_reactor(
 	mut commands: Commands,
 	textures: Res<TextureAssets>,
@@ -51,6 +58,11 @@ fn spawn_reactor(
 	Visibility::Hidden,
 	Reactor,
 	));
+	commands.insert_resource(SpawnTracker{
+		timer: 0.0,
+		increment: 0,
+		max: 8,
+	});
 }
 
 fn rand_vel() -> Vec2 {
@@ -63,17 +75,30 @@ fn _rand_pos() -> Vec3 {
 
 fn spawn_molecules(
 	mut commands: Commands,
-	mut spawn_timer: Local<f32>,
+	mut spawn_tracker: ResMut<SpawnTracker>,
 	reactor_query: Query<&Transform, With<Reactor>>,
+	player_query: Query<&Transform, (Without<Reactor>, With<PlayerInfo>)>,
 	textures: Res<TextureAssets>,
 	time: Res<Time>,
 ) {
-	*spawn_timer += time.delta_secs();
-	if *spawn_timer > 1.0 {
-		*spawn_timer -= 1.0;
+	let times = 			vec![1.0,   3.0,   4.0,   5.0,   5.1,   5.2,   5.3,   5.4,   5.5];
+	let indices = 		vec![4,     1,     0,     0,     0,     0,     0,     0,     0];
+	let angles = 			vec![0.0,   180.0, 180.0, 361.0, 361.0, 361.0, 361.0, 361.0, 361.0];
+	let velocities = 		vec![100.0, 150.0, 400.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0];
+	spawn_tracker.timer += time.delta_secs();
+	if spawn_tracker.timer > times[spawn_tracker.increment] {
 		let reactor = reactor_query.single().expect("Could not find reactor");
-		let index = rand::thread_rng().gen_range(0..5);
-		spawn_molecule(&mut commands, &textures, reactor.translation.xy().extend(1.0), rand_vel(), index, get_molecule_radius(index), get_molecule_mass(index));
+		let player = player_query.single().expect("Could not find player");
+		let index = indices[spawn_tracker.increment];
+		let angle = if angles[spawn_tracker.increment] == 361.0 {(player.translation.xy() - reactor.translation.xy()).normalize()} 
+		else {Vec2::from_angle((angles[spawn_tracker.increment] as f32).to_radians()).rotate(Vec2::from_angle(90.0_f32.to_radians()))};
+		spawn_molecule(&mut commands, &textures, reactor.translation.xy().extend(1.0), angle * velocities[spawn_tracker.increment], index, get_molecule_radius(index), get_molecule_mass(index));
+		if spawn_tracker.increment == spawn_tracker.max {
+			spawn_tracker.increment = 0;
+			spawn_tracker.timer = 0.0;
+		} else{
+			spawn_tracker.increment += 1;
+		}
 	}
 }
 
@@ -150,8 +175,11 @@ fn move_bullet(
 	for (entity, mut b_transform) in bullet_query.iter_mut() {
 		let offset = p_transform.translation.xy() - b_transform.translation.xy();
 		if offset.length() < 6.0 + 24.0 {
-			p_info.stun_duration = 0.4;
-			p_info.lives -= 1.0;
+			if p_info.invul_duration == 0.0 {
+				p_info.invul_duration = 1.0;
+				p_info.stun_duration = 0.4;
+				p_info.lives -= 1.0;
+			}
 			commands.entity(entity).despawn();
 		} else {
 			b_transform.translation = (b_transform.translation.xy() + (120.0 * offset.normalize() * time.delta_secs())).extend(1.0);
@@ -168,15 +196,25 @@ fn valid_molecule_combination(a: usize, b: usize) -> ReactionInfo {
 	let (a, b) = (a.min(b), a.max(b));
 	match a {
 		0 => match b {
-			0 => ReactionInfo::Reaction(vec![1]),
+			0 => ReactionInfo::Reaction(vec![100, 101]),
+			1 => ReactionInfo::Reaction(vec![100, 0, 0]),
+			2 => ReactionInfo::Reaction(vec![100, 1, 0]),
+			3 => ReactionInfo::Reaction(vec![100, 2, 1]),
+			4 => ReactionInfo::Reaction(vec![100, 3, 3]),
 			_ => ReactionInfo::None,
 		}
 		1 => match b {
-			1 => ReactionInfo::Reaction(vec![2,2]),
+			4 => ReactionInfo::Reaction(vec![100, 101, 101, 101, 101]),
 			_ => ReactionInfo::None,
 		}
 		2 => match b {
-			2 => ReactionInfo::Reaction(vec![101]),
+			2 => ReactionInfo::Reaction(vec![100, 4]),
+			_ => ReactionInfo::None,
+		}
+		3 => match b {
+			_ => ReactionInfo::None,
+		}
+		4 => match b {
 			_ => ReactionInfo::None,
 		}
 		_ => ReactionInfo::None,
@@ -185,19 +223,23 @@ fn valid_molecule_combination(a: usize, b: usize) -> ReactionInfo {
 
 fn get_molecule_radius(index: usize) -> f32 {
 	match index {
-		0 => 8.0,
-		1 => 12.0,
-		2 => 16.0,
-		_ => 6.0,
+		0 => 6.0,
+		1 => 8.0,
+		2 => 10.0,
+		3 => 12.0,
+		4 => 16.0,
+		_ => 20.0,
 	}
 }
 
 fn get_molecule_mass(index: usize) -> f32 {
 	match index {
-		0 => 4.0,
+		0 => 6.0,
 		1 => 8.0,
-		2 => 25.0,
-		_ => 6.0,
+		2 => 10.0,
+		3 => 12.0,
+		4 => 16.0,
+		_ => 20.0,
 	}
 }
 
@@ -214,8 +256,8 @@ fn molecule_movement(
 	}
 	let mut iter = molecule_query.iter_combinations_mut();
 	while let Some([
-		(_entity_a, mut m_info_a, mut transform_a),
-		(_entity_b, mut m_info_b, mut transform_b),
+		(entity_a, mut m_info_a, mut transform_a),
+		(entity_b, mut m_info_b, mut transform_b),
 	]) = iter.fetch_next()
 	{
 		if m_info_a.reacted || m_info_b.reacted {
@@ -240,6 +282,10 @@ fn molecule_movement(
 								spawn_molecule(&mut commands, &textures, pos, rand_vel(), output, radius, mass);
 							} else {
 								match output {
+									100 => {
+										commands.entity(entity_a).despawn();
+										commands.entity(entity_b).despawn();
+									}
 									101 => {
 										spawn_bullet(&mut commands, &textures, pos, 6.0);
 									}
@@ -280,8 +326,11 @@ fn molecule_movement(
 	for (entity, _, m_transform) in molecule_query.iter_mut() {
 		let offset = p_transform.translation.xy() - m_transform.translation.xy();
 		if offset.length() <= p_info.radius + 8.0 {
-			p_info.lives -= 1.0;
-			p_info.stun_duration = 0.4;
+			if p_info.invul_duration == 0.0 {
+				p_info.invul_duration = 1.0;
+				p_info.stun_duration = 0.4;
+				p_info.lives -= 1.0;
+			}
 			commands.entity(entity).despawn();
 		}
 	}
@@ -320,7 +369,7 @@ fn destroy_molecules(
 				for w_transform in weapon_collider_query.iter() {
 					let offset = m_transform.translation.xy() - w_transform.translation().xy();
 					if offset.length() <= m_info.radius + 6.0 * wp_transform.scale.x {
-						p_info.score += m_info.index as f32;
+						p_info.score += m_info.index as f32 + 1.0;
 						commands.entity(entity).despawn();
 						break;
 					}

@@ -7,12 +7,14 @@ use bevy::{
 	input::mouse::MouseButtonInput, 
 };
 use crate::loading::TextureAssets;
+use crate::menu::DeathFadeout;
 use crate::molecules::{BulletInfo, MoleculeInfo, Reactor};
 use crate::GameState;
 
 #[derive(Component)]
 pub struct PlayerInfo {
 	pub lives: f32,
+	pub death_countdown: f32,
 	pub time_survived: f32,
 	pub score: f32,
 	pub vel: Vec2,
@@ -20,6 +22,7 @@ pub struct PlayerInfo {
 	pub max_vel: f32,
 	pub radius: f32,
 	pub stun_duration: f32,
+	pub invul_duration: f32,
 }
 
 pub struct PlayerPlugin;
@@ -78,10 +81,10 @@ impl AnimationConfig {
 fn execute_animations(
 	time: Res<Time>,
 	player_query: Query<&PlayerInfo>,
-	mut query: Query<(&mut AnimationConfig, &mut Sprite)>,
+	mut animation_query: Query<(&mut AnimationConfig, &mut Sprite)>,
 ) {
 	let player = player_query.single().expect("Could not find player");
-	for (mut config, mut sprite) in &mut query {
+	for (mut config, mut sprite) in &mut animation_query {
 		config.frame_timer.tick(time.delta());
 		if config.frame_timer.just_finished() {
 			if let Some(atlas) = &mut sprite.texture_atlas {
@@ -92,6 +95,13 @@ fn execute_animations(
 				}
 			}
 		}
+		if player.invul_duration > 0.0 {
+			let flicker = ((player.invul_duration * 2.0 * 2.0 * PI - PI/2.0).sin() + 1.0)/2.0;
+			println!("{}, {}", player.invul_duration, flicker);
+			sprite.color = Color::linear_rgb(1.0, 1.0 - flicker, 1.0 - flicker);
+		} else {
+			sprite.color = Color::WHITE;
+		};
 	}
 }
 
@@ -119,6 +129,7 @@ fn spawn_player(
 		Transform::from_xyz(0.0, 220.0, 100.0),
 		PlayerInfo {
 			lives: 3.0,
+			death_countdown: 0.0,
 			time_survived: 0.0,
 			score: 0.0,
 			vel: Vec2::ZERO,
@@ -126,6 +137,7 @@ fn spawn_player(
 			max_vel: 240.0,
 			radius,
 			stun_duration: 0.0,
+			invul_duration: 0.0,
 		},
 	)).with_children(move |player| {
 		player.spawn((
@@ -181,6 +193,9 @@ fn player_movement(
 	let (mut player, mut transform) = player_query.single_mut().expect("Could not find player");
 	let window = windows.single().expect("Could not find window");
 	let window_size = Vec2::new(window.width(), window.height());
+	if player.invul_duration > 0.0 {
+		player.invul_duration = (player.invul_duration - time.delta_secs()).clamp(0.0, 10.0);
+	}
 	for weapon_pivot in weapon_pivot_query.iter() {
 		if player.stun_duration == 0.0 {
 			if let Some(mut target) = window.cursor_position() {
@@ -224,13 +239,22 @@ fn player_movement(
 fn check_player_lives(
 	mut next_state: ResMut<NextState<GameState>>,
 	mut player_query: Query<&mut PlayerInfo>,
+	mut death_query: Query<&mut Sprite, With<DeathFadeout>>,
 	time: Res<Time>,
 ) {
 	let mut p_info = player_query.single_mut().expect("Could not find player");
-	if p_info.lives <= 0.0 {
+	let mut sprite = death_query.single_mut().expect("Could not find death fadeout");
+	if p_info.death_countdown > 0.0 {
+		sprite.color = Color::linear_rgba(0.0, 0.0, 0.0, 1.0 - p_info.death_countdown/1.5);
+		if p_info.invul_duration == 0.0 {p_info.invul_duration = 1.0};
+		p_info.death_countdown = (p_info.death_countdown - time.delta_secs()).clamp(0.0, 10.0);
+		if p_info.death_countdown == 0.0 {
+			next_state.set(GameState::Retry);
+		};
+	} else if p_info.lives <= 0.0 {
 		println!("Score: {}", p_info.score);
 		println!("Time Survived: {}", p_info.time_survived);
-		next_state.set(GameState::Retry);
+		p_info.death_countdown = 1.5;
 	} else {
 		p_info.time_survived += time.delta_secs();
 	}
@@ -300,7 +324,7 @@ fn cleanup_game(
 	player_query: Query<Entity, With<PlayerInfo>>,
 	molecule_query: Query<Entity, (Without<PlayerInfo>, With<MoleculeInfo>)>,
 	bullet_query: Query<Entity, (Without<PlayerInfo>, Without<MoleculeInfo>, With<BulletInfo>)>,
-	reactor_query: Query<Entity, (Without<PlayerInfo>, Without<MoleculeInfo>, Without<BulletInfo>, With<Reactor>)>
+	reactor_query: Query<Entity, (Without<PlayerInfo>, Without<MoleculeInfo>, Without<BulletInfo>, With<Reactor>)>,
 ) {
 	let p_entity = player_query.single().expect("Could not find player");
 	commands.entity(p_entity).despawn();

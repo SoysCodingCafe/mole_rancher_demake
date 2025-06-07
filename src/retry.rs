@@ -1,4 +1,5 @@
 use crate::loading::TextureAssets;
+use crate::menu::DeathFadeout;
 use crate::GameState;
 
 use bevy::prelude::*;
@@ -8,7 +9,7 @@ pub struct RetryPlugin;
 impl Plugin for RetryPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Retry), setup_retry)
-            .add_systems(Update, click_retry_button.run_if(in_state(GameState::Retry)))
+            .add_systems(Update, (click_retry_button, death_fadein).run_if(in_state(GameState::Retry)))
             .add_systems(OnExit(GameState::Retry), cleanup_retry)
 			;
     }
@@ -208,6 +209,16 @@ fn click_retry_button(
             }
         }
     }
+}
+
+fn death_fadein(
+	time: Res<Time>,
+	mut death_query: Query<&mut Sprite, With<DeathFadeout>>,
+) {
+	let mut d_sprite = death_query.single_mut().expect("Could not find death fadeout");
+	if d_sprite.color.alpha() > 0.0 {
+		d_sprite.color = Color::linear_rgba(0.0, 0.0, 0.0, (d_sprite.color.alpha() - time.delta_secs()).clamp(0.0, 1.0));
+	};
 }
 
 fn cleanup_retry(mut commands: Commands, retry: Query<Entity, With<Retry>>) {

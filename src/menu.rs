@@ -17,6 +17,10 @@ impl Plugin for MenuPlugin {
     }
 }
 
+#[derive(Component)]
+pub struct DeathFadeout;
+
+
 fn spawn_background(mut commands: Commands, textures: Res<TextureAssets>) {
 	commands.spawn((
 		Sprite {
@@ -28,6 +32,19 @@ fn spawn_background(mut commands: Commands, textures: Res<TextureAssets>) {
 			translation: Vec3::new(0.0, 0.0, 0.0),
 			..default()
 		}
+	));
+
+	commands.spawn((
+		Sprite {
+            color: Color::linear_rgba(0.0, 0.0, 0.0, 0.0),
+			custom_size: Some(Vec2::new(1080.0, 810.0)),
+			..default()
+		},
+		Transform {
+			translation: Vec3::new(0.0, 0.0, 999.0),
+			..default()
+		},
+		DeathFadeout,
 	));
 }
 
