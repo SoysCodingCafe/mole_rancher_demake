@@ -69,6 +69,16 @@ fn setup_retry(mut commands: Commands, textures: Res<TextureAssets>) {
                     },
                     TextColor(Color::linear_rgb(0.9, 0.9, 0.9)),
                 ));
+			children
+                .spawn((
+                    Node {
+                        width: Val::Px(140.0),
+                        height: Val::Px(330.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..Default::default()
+                    },
+                ));
         });
     commands
         .spawn((
