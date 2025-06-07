@@ -57,7 +57,7 @@ fn rand_vel() -> Vec2 {
 	Vec2::new(rand::random::<f32>() - 0.5, rand::random::<f32>() - 0.5).normalize() * 260.0
 }
 
-fn rand_pos() -> Vec3 {
+fn _rand_pos() -> Vec3 {
 	(Vec2::new((rand::random::<f32>() - 0.5) * 1080.0, (rand::random::<f32>() - 0.5) * 810.0).clamp_length_min(128.0)).extend(0.0)
 }
 
@@ -267,11 +267,11 @@ fn molecule_movement(
 		m_info.reaction_cooldown = (m_info.reaction_cooldown - time.delta_secs()).clamp(0.0, 10.0);
 		transform.translation.x += m_info.vel.x * time.delta_secs();
 		transform.translation.y += m_info.vel.y * time.delta_secs();
-		let pos = transform.translation.xy().abs();
-		if pos.x > 540.0 - m_info.radius {
+		let pos = transform.translation.xy();
+		if pos.x > 540.0 - 43.0/2.0 - m_info.radius || pos.x < -540.0 + 47.0/2.0 + m_info.radius {
 			m_info.vel.x = -m_info.vel.x;
 		}
-		if pos.y > 405.0 - m_info.radius {
+		if pos.y > 405.0 - 130.0/2.0 - m_info.radius || pos.y < -405.0 + 76.0 + m_info.radius {
 			m_info.vel.y = -m_info.vel.y;
 		}
 	}
@@ -289,12 +289,18 @@ fn molecule_movement(
 
 fn clamp_inside_reactor(mut molecule_query: Query<(&MoleculeInfo, &mut Transform)>) {
 	for (m_info, mut transform) in molecule_query.iter_mut() {
-		let offset = transform.translation.xy().abs();
-		if offset.x > 540.0 - m_info.radius {
-			transform.translation.x = transform.translation.x.signum() * (540.0 - m_info.radius);
+		let pos = transform.translation.xy();
+		if pos.x > 540.0 - 43.0/2.0 - m_info.radius {
+			transform.translation.x = 540.0 - 43.0/2.0 - m_info.radius;
 		}
-		if offset.y > 405.0 - m_info.radius {
-			transform.translation.y = transform.translation.y.signum() * (405.0 - m_info.radius);
+		if pos.x < -540.0 + 47.0/2.0 + m_info.radius {
+			transform.translation.x = -540.0 + 47.0/2.0 + m_info.radius;
+		}
+		if pos.y > 405.0 - 130.0/2.0 - m_info.radius {
+			transform.translation.y = 405.0 - 130.0/2.0 - m_info.radius;
+		}
+		if pos.y < -405.0 + 76.0 + m_info.radius {
+			transform.translation.y = -405.0 + 76.0 + m_info.radius;
 		}
 	}
 }
@@ -305,15 +311,15 @@ fn destroy_molecules(
 	molecule_query: Query<(Entity, &MoleculeInfo, &Transform)>,
 	bullet_query: Query<(Entity, &BulletInfo, &Transform), Without<MoleculeInfo>>,
 	weapon_collider_query: Query<&GlobalTransform, With<WeaponCollider>>,
-	weapon_pivot_query: Query<&WeaponPivot>,
+	weapon_pivot_query: Query<(&Transform, &WeaponPivot)>,
 ) {
 	let mut p_info = player_query.single_mut().expect("Could not find player");
-	for weapon in weapon_pivot_query.iter(){
+	for (wp_transform, weapon) in weapon_pivot_query.iter(){
 		if weapon.active {
 			for (entity, m_info, m_transform) in molecule_query.iter() {
 				for w_transform in weapon_collider_query.iter() {
 					let offset = m_transform.translation.xy() - w_transform.translation().xy();
-					if offset.length() <= m_info.radius + 6.0 {
+					if offset.length() <= m_info.radius + 6.0 * wp_transform.scale.x {
 						p_info.score += m_info.index as f32;
 						commands.entity(entity).despawn();
 						break;
@@ -324,7 +330,7 @@ fn destroy_molecules(
 			for (entity, b_info, m_transform) in bullet_query.iter() {
 				for w_transform in weapon_collider_query.iter() {
 					let offset = m_transform.translation.xy() - w_transform.translation().xy();
-					if offset.length() <= b_info.radius + 6.0 {
+					if offset.length() <= b_info.radius + 6.0 * wp_transform.scale.x {
 						p_info.score += 1.0;
 						commands.entity(entity).despawn();
 						break;

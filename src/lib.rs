@@ -3,6 +3,7 @@
 mod audio;
 mod loading;
 mod menu;
+mod retry;
 mod molecules;
 mod player;
 mod postprocess;
@@ -10,6 +11,7 @@ mod postprocess;
 use crate::audio::InternalAudioPlugin;
 use crate::loading::LoadingPlugin;
 use crate::menu::MenuPlugin;
+use crate::retry::RetryPlugin;
 use crate::molecules::MoleculesPlugin;
 use crate::player::PlayerPlugin;
 use crate::postprocess::PostProcessPlugin;
@@ -23,6 +25,7 @@ enum GameState {
     Loading,
     Playing,
     Menu,
+	Retry,
 }
 
 pub struct GamePlugin;
@@ -33,6 +36,7 @@ impl Plugin for GamePlugin {
             PostProcessPlugin,
             LoadingPlugin,
             MenuPlugin,
+			RetryPlugin,
             InternalAudioPlugin,
 			MoleculesPlugin,
             PlayerPlugin,

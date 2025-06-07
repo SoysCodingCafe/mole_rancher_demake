@@ -5,7 +5,6 @@ use bevy::{
 	prelude::*, 
 	window::PrimaryWindow, 
 	input::mouse::MouseButtonInput, 
-	ecs::system::IntoSystem
 };
 use crate::loading::TextureAssets;
 use crate::molecules::{BulletInfo, MoleculeInfo, Reactor};
@@ -33,7 +32,9 @@ impl Plugin for PlayerPlugin {
 				player_movement,
 				execute_animations,
 				check_player_lives,
-			).chain().run_if(in_state(GameState::Playing)));
+			).chain().run_if(in_state(GameState::Playing)))
+			.add_systems(OnExit(GameState::Playing), cleanup_game)
+		;
 	}
 }
 
@@ -55,17 +56,17 @@ pub struct WeaponCollider;
 struct AnimationConfig {
     first_sprite_index: usize,
     last_sprite_index: usize,
-    fps: u8,
+    _fps: u8,
     frame_timer: Timer,
 }
 
 impl AnimationConfig {
-    fn new(first: usize, last: usize, fps: u8) -> Self {
+    fn new(first: usize, last: usize, _fps: u8) -> Self {
         Self {
             first_sprite_index: first,
             last_sprite_index: last,
-            fps,
-            frame_timer: Self::timer_from_fps(fps),
+            _fps,
+            frame_timer: Self::timer_from_fps(_fps),
         }
     }
 
@@ -115,7 +116,7 @@ fn spawn_player(
 				..default()
 		},
 		animation_config,
-		Transform::from_xyz(250.0, 0.0, 100.0),
+		Transform::from_xyz(0.0, 220.0, 100.0),
 		PlayerInfo {
 			lives: 3.0,
 			time_survived: 0.0,
@@ -132,7 +133,7 @@ fn spawn_player(
 			Visibility::Visible,
 			WeaponPivot {
 				time_left: 0.0,
-				max_time: 0.6,
+				max_time: 0.3,
 				backswing: 0.0,
 				held: false,
 				swinging: false,
@@ -210,6 +211,8 @@ fn player_movement(
 				} else {
 					transform.translation = ((move_target - reactor_loc.translation.xy()).normalize() * (24.0 + 64.0)).extend(100.0);
 				}
+			} else {
+				player.vel = Vec2::ZERO;
 			}
 		} else {
 			player.stun_duration = (player.stun_duration - time.delta_secs()).clamp(0.0, 10.0);
@@ -220,25 +223,17 @@ fn player_movement(
 
 fn check_player_lives(
 	mut commands: Commands,
-	mut player_query: Query<(&mut Transform, &mut PlayerInfo)>,
+	mut next_state: ResMut<NextState<GameState>>,
+	mut player_query: Query<(Entity, &mut Transform, &mut PlayerInfo)>,
 	molecule_query: Query<Entity, (With<MoleculeInfo>, Without<PlayerInfo>)>,
 	bullet_query: Query<Entity, (With<BulletInfo>, Without<MoleculeInfo>, Without<PlayerInfo>)>,
 	time: Res<Time>,
 ) {
-	let (mut transform, mut p_info) = player_query.single_mut().expect("Could not find player");
+	let (p_entity, mut transform, mut p_info) = player_query.single_mut().expect("Could not find player");
 	if p_info.lives <= 0.0 {
 		println!("Score: {}", p_info.score);
 		println!("Time Survived: {}", p_info.time_survived);
-		transform.translation = Vec3::new(250.0, 0.0, 100.0);
-		p_info.lives = 3.0;
-		p_info.score = 0.0;
-		p_info.time_survived = 0.0;
-		for entity in molecule_query.iter() {
-			commands.entity(entity).despawn();
-		}
-		for entity in bullet_query.iter() {
-			commands.entity(entity).despawn();
-		}
+		next_state.set(GameState::Retry);
 	} else {
 		p_info.time_survived += time.delta_secs();
 	}
@@ -272,13 +267,13 @@ fn weapon_swing(
 		}
 	}
 
-	let backswing_amount = PI/4.0;
+	let backswing_amount = PI/2.0;
 	let total_angle = PI;
 	let offset_angle = 0.0;
 
 	for (mut weapon_pivot, mut transform) in weapon_query.iter_mut() {
 		if weapon_pivot.held {
-			weapon_pivot.backswing = (weapon_pivot.backswing + time.delta_secs() * 4.0).clamp(0.0, 0.5);
+			weapon_pivot.backswing = (weapon_pivot.backswing + (0.5 - weapon_pivot.backswing) * time.delta_secs() * 4.0).clamp(0.0, 0.5);
 			let backswing_angle = if weapon_pivot.clockwise_swing {weapon_pivot.backswing * backswing_amount}
 				else {-weapon_pivot.backswing * backswing_amount + total_angle};
 			transform.rotation = Quat::from_rotation_z(backswing_angle);
@@ -289,7 +284,7 @@ fn weapon_swing(
 				else {percent * (total_angle + weapon_pivot.backswing) - (weapon_pivot.backswing + offset_angle)};
 			transform.rotation = Quat::from_rotation_z(-angle);
 
-			let scale = (1.0 + ((1.0 - percent).powf(0.7) * PI).sin()) * 0.65;
+			let scale = (1.0 + ((1.0 - percent).powf(0.7) * PI).sin()) * (0.65 + weapon_pivot.backswing/4.0) ;
 			transform.scale = Vec2::splat((scale).clamp(1.0, 2.0)).extend(0.0);
 
 			if weapon_pivot.swinging && weapon_pivot.time_left == 0.0 {
@@ -300,5 +295,29 @@ fn weapon_swing(
 				weapon_pivot.clockwise_swing = !weapon_pivot.clockwise_swing;
 			}
 		}
+	}
+}
+
+fn cleanup_game(
+	mut commands: Commands,
+	player_query: Query<Entity, With<PlayerInfo>>,
+	molecule_query: Query<Entity, (Without<PlayerInfo>, With<MoleculeInfo>)>,
+	bullet_query: Query<Entity, (Without<PlayerInfo>, Without<MoleculeInfo>, With<BulletInfo>)>,
+	reactor_query: Query<Entity, (Without<PlayerInfo>, Without<MoleculeInfo>, Without<BulletInfo>, With<Reactor>)>
+) {
+	let p_entity = player_query.single().expect("Could not find player");
+	commands.entity(p_entity).despawn();
+	// transform.translation = Vec3::new(0.0, 220.0, 100.0);
+	// p_info.lives = 3.0;
+	// p_info.score = 0.0;
+	// p_info.time_survived = 0.0;
+	for entity in molecule_query.iter() {
+		commands.entity(entity).despawn();
+	}
+	for entity in bullet_query.iter() {
+		commands.entity(entity).despawn();
+	}
+	for entity in reactor_query.iter() {
+		commands.entity(entity).despawn();
 	}
 }
