@@ -136,29 +136,44 @@ fn spawn_reactor(
 	// let mut track_player = vec![vec![]];
 
 	let times = vec![
-		vec![1.0, 2.0],
-		vec![1.0, 2.0, 3.0, 4.0, 5.0, 10.0],
-		vec![2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5],
+		vec![1.0, 4.0],
+		vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 8.0],
+		vec![0.0, 2.0, 4.0, 6.0, 10.0, 12.0],
+		vec![0.0, 0.5, 3.0, 3.5, 6.0, 6.5, 9.0, 9.5, 14.0],
+		vec![0.0, 2.0, 4.0, 5.0, 6.0, 7.0, 8.0, 8.5, 9.0, 9.5, 10.0, 15.0],
+		vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0],
 	];
 	let indices = vec![
-		vec![4, 0],
-		vec![4, 3, 2, 1, 0, 0],
-		vec![0, 0, 0, 0, 0, 0, 0, 0],
+		vec![4, 100],
+		vec![0, 0, 0, 0, 0, 0, 0, 0, 100],
+		vec![4, 3, 2, 1, 0, 100],
+		vec![4, 0, 3, 0, 2, 0, 1, 0, 100],
+		vec![2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 100],
+		vec![1, 1, 1, 1, 1, 1, 1, 1, 100],
 	];
 	let velocities = vec![
-		vec![200.0, 250.0],
-		vec![150.0, 160.0, 170.0, 180.0, 250.0, 230.0],
-		vec![260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0],
+		vec![200.0, 0.0],
+		vec![260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 0.0],
+		vec![150.0, 160.0, 170.0, 180.0, 250.0, 0.0],
+		vec![200.0, 300.0, 200.0, 300.0, 200.0, 300.0, 200.0, 300.0, 0.0],
+		vec![260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 0.0],
+		vec![220.0, 220.0, 220.0, 220.0, 220.0, 220.0, 220.0, 220.0, 0.0],
 	];
 	let angles = vec![
 		vec![0.0, 0.0],
+		vec![0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0, 0.0],
 		vec![0.0, 90.0, 180.0, 270.0, 0.0, 0.0],
-		vec![0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0],
+		vec![180.0, 180.0, 0.0, 0.0, 270.0, 270.0, 45.0, 45.0, 0.0],
+		vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+		vec![0.0, 315.0, 270.0, 225.0, 180.0, 135.0, 90.0, 45.0, 0.0],
 	];
 	let track_player = vec![
-		vec![true, true],
+		vec![false, false],
+		vec![false, false, false, false, false, false, false, false, false],
 		vec![false, false, false, false, true, false],
-		vec![false, false, false, false, false, false, false, false]
+		vec![false, false, false, false, false, false, false, false, false],
+		vec![true, true, true, true, true, true, true, true, true, true, true, true],
+		vec![false, false, false, false, false, false, false, false, false],
 	];
 
 	let mut level_lengths = vec![];
@@ -296,6 +311,7 @@ fn spawn_molecules(
 }
 
 fn spawn_molecule(commands: &mut Commands, textures: &Res<TextureAssets>, pos: Vec3, vel: Vec2, index: usize, radius: f32, mass: f32) {
+	if index == 100 {return};
 	let colours = [
 		Color::hsv(60.0, 0.82, 0.45),
 		Color::hsv(53.0, 0.88, 0.74),
@@ -460,11 +476,11 @@ fn valid_molecule_combination(a: usize, b: usize) -> ReactionInfo {
 
 fn get_molecule_radius(index: usize) -> f32 {
 	match index {
-		0 => 6.0,
-		1 => 8.0,
-		2 => 10.0,
-		3 => 12.0,
-		4 => 16.0,
+		0 => 10.0,
+		1 => 12.0,
+		2 => 16.0,
+		3 => 20.0,
+		4 => 24.0,
 		_ => 20.0,
 	}
 }
