@@ -292,7 +292,7 @@ fn spawn_molecules(
 	textures: Res<TextureAssets>,
 	time: Res<Time>,
 ) {
-	spawn_tracker.timer += time.delta_secs() * (1.0 + spawn_tracker.level as f32/100.0);
+	spawn_tracker.timer += time.delta_secs() * (1.0 + spawn_tracker.level as f32/10.0);
 	if spawn_tracker.timer > spawn_tracker.times[spawn_tracker.level][spawn_tracker.increment] {
 		let reactor = reactor_query.single().expect("Could not find reactor");
 		let player = player_query.single().expect("Could not find player");
@@ -354,7 +354,7 @@ fn spawn_particles(
 		Color::hsv(32.0, 0.14, 0.77),
 	];
 
-	for i in 0..8 {
+	for _i in 0..8 {
 		commands.spawn((
 			Sprite {
 					image: textures.ball.clone(),
@@ -511,18 +511,17 @@ fn valid_molecule_combination(a: usize, b: usize) -> ReactionInfo {
 	match a {
 		0 => match b {
 			0 => ReactionInfo::Reaction(vec![100, 101]),
-			1 => ReactionInfo::Reaction(vec![100, 0, 0]),
+			1 => ReactionInfo::Reaction(vec![100, 0, 0, 0]),
 			2 => ReactionInfo::Reaction(vec![100, 1, 1, 0]),
 			3 => ReactionInfo::Reaction(vec![100, 2, 2, 0]),
 			4 => ReactionInfo::Reaction(vec![100, 3, 3, 0]),
 			_ => ReactionInfo::None,
 		}
 		1 => match b {
-			4 => ReactionInfo::Reaction(vec![100, 101, 101, 101, 101]),
 			_ => ReactionInfo::None,
 		}
 		2 => match b {
-			2 => ReactionInfo::Reaction(vec![100, 4]),
+			2 => ReactionInfo::Reaction(vec![100, 101, 0, 0, 0,]),
 			_ => ReactionInfo::None,
 		}
 		3 => match b {
