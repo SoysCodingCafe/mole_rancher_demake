@@ -167,7 +167,7 @@ fn spawn_player(
 			for i in 0..12 {
 				weapon_pivot.spawn((
 				Sprite {
-					image: textures.circle.clone(),
+					image: textures.hoop.clone(),
 					custom_size: Some(Vec2::new(12.0, 12.0)),
 					..default()
 				},

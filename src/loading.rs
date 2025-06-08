@@ -38,18 +38,26 @@ pub struct AudioAssets {
 
 #[derive(AssetCollection, Resource)]
 pub struct TextureAssets {
-    #[asset(path = "textures/bevy.png")]
-    pub bevy: Handle<Image>,
-    #[asset(path = "textures/github.png")]
-    pub github: Handle<Image>,
+	#[asset(path = "textures/alive.png")]
+	pub alive: Handle<Image>,
 	#[asset(path = "textures/background.png")]
     pub background: Handle<Image>,
-	#[asset(path = "textures/weapon.png")]
-    pub weapon: Handle<Image>,
-	#[asset(path = "textures/circle.png")]
-	pub circle: Handle<Image>,
+	#[asset(path = "textures/ball.png")]
+    pub ball: Handle<Image>,
+    #[asset(path = "textures/bevy.png")]
+	pub bevy: Handle<Image>,
+	#[asset(path = "textures/dead.png")]
+    pub dead: Handle<Image>,
+    #[asset(path = "textures/github.png")]
+    pub github: Handle<Image>,
+	#[asset(path = "textures/hoop.png")]
+    pub hoop: Handle<Image>,
 	#[asset(path = "textures/rodney.png")]
 	pub rodney: Handle<Image>,
-	#[asset(path = "textures/cross.png")]
-	pub cross: Handle<Image>,
+	#[asset(path = "textures/star.png")]
+    pub star: Handle<Image>,
+	#[asset(path = "textures/triangle.png")]
+    pub triangle: Handle<Image>,
+	#[asset(path = "textures/weapon.png")]
+    pub weapon: Handle<Image>,
 }

@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_kira_audio::{Audio, AudioControl};
@@ -13,6 +15,7 @@ pub struct MoleculeInfo {
 	pub reaction_cooldown: f32,
 	pub radius: f32,
 	pub mass: f32,
+	pub spawn_growth: f32,
 }
 
 #[derive(Component)]
@@ -30,7 +33,7 @@ impl Plugin for MoleculesPlugin {
 			.add_systems(Update, update_highscore.run_if(in_state(GameState::Retry)))
 			.add_systems(OnEnter(GameState::Playing), spawn_reactor)
 			.add_systems(Update, (
-				//level_editor,
+				// level_editor,
 				spawn_molecules,
 				molecule_movement,
 				move_bullet,
@@ -49,7 +52,8 @@ pub struct SpawnTracker {
 	increment: usize,
 	times: Vec<Vec<f32>>,
 	indices: Vec<Vec<usize>>,
-	velocities: Vec<Vec<Vec2>>,
+	velocities: Vec<Vec<f32>>,
+	angles: Vec<Vec<f32>>,
 	track_player: Vec<Vec<bool>>,
 	level: usize,
 	level_lengths: Vec<usize>,
@@ -81,10 +85,9 @@ fn update_score(
 	let player = player_query.single().expect("Could not find player");
 	let mut score = score_query.single_mut().expect("Could not find score");
 	if player.lives > 0.0 {
-		let time_surv = if player.time_survived < 59.0 {format!{"{:.2}s", player.time_survived % 60.0}} 
-		else if player.time_survived >= 59.0 && player.time_survived < 60.0 {
-			format!{"59s"}
-		} else {
+		let time_surv = if player.time_survived < 59.0 {format!{"{:.2}s", player.time_survived % 60.0}}
+		else if player.time_survived >= 59.0 && player.time_survived < 60.0 {format!{"59s"}}
+		else {
 			format!{"{:.0}m {:.0}s", (player.time_survived/60.0).floor() % 60.0, player.time_survived.floor() % 60.0}
 		};
 		score.0 = format!("Score: {}\nTime Survived: {}", player.score, time_surv);
@@ -95,13 +98,12 @@ fn update_highscore(
 	mut score_query: Query<(&mut Text2d, &Score)>,
 ) {
 	let (mut text, score) = score_query.single_mut().expect("Could not find score");
-	let time_surv = if score.hightime < 59.5 {format!{"{:.2}s", score.hightime % 60.0}
-	} else if score.hightime >= 59.0 && score.hightime < 60.0 {
-		format!{"59s"}
-	} else {
+	let time_surv = if score.hightime < 59.0 {format!{"{:.2}s", score.hightime % 60.0}} 
+	else if score.hightime >= 59.0 && score.hightime < 60.0 {format!{"59s"}}
+	else {
 		format!{"{:.0}m {:.0}s", (score.hightime/60.0).floor() % 60.0, score.hightime.floor() % 60.0}
 	};
-	text.0 = format!("Highscore: {}\nLongest Time Survived: {:.2}s", score.highscore, time_surv);
+	text.0 = format!("Highscore: {}\nLongest Time Survived: {}", score.highscore, time_surv);
 }
 
 fn spawn_reactor(
@@ -109,7 +111,7 @@ fn spawn_reactor(
 	textures: Res<TextureAssets>,
 ) {
 	commands.spawn((Sprite {
-		image: textures.circle.clone(),
+		image: textures.hoop.clone(),
 		custom_size: Some(Vec2::new(128.0, 128.0)),
 		..default()
 	},
@@ -133,11 +135,31 @@ fn spawn_reactor(
 	// let mut velocities = vec![vec![]];
 	// let mut track_player = vec![vec![]];
 
-	let times = vec![vec![1.5349127, 2.201693, 2.7517598, 3.168261, 4.352251, 5.0390396, 5.752186, 6.5185313, 8.484857, 8.801608, 9.118443, 10.535108, 10.834695, 11.118693, 11.418816], vec![14.118426, 14.768145, 15.301594, 15.95203, 17.251623, 17.48482, 17.718147, 18.318827, 18.551878, 18.751999, 19.351501, 19.568718, 19.734749, 21.052189, 21.302149, 21.485407]];
-	let indices = vec![vec![0, 0, 0, 0, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0], vec![0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4]];
-	let velocities = vec![vec![Vec2::new(9.5, 108.5), Vec2::new(140.5, -6.0), Vec2::new(-7.0, -111.5), Vec2::new(-134.0, -2.5), Vec2::new(15.0, 80.0), Vec2::new(141.0, -14.0), Vec2::new(-18.0, -117.0), Vec2::new(-139.0, -19.0), Vec2::new(127.5, -32.5), Vec2::new(127.5, -32.5), Vec2::new(127.5, -32.5), Vec2::new(127.5, -32.5), Vec2::new(127.5, -32.5), Vec2::new(127.5, -32.5), Vec2::new(127.5, -32.5)], vec![Vec2::new(150.5, -18.0), Vec2::new(-2.5, 94.5), Vec2::new(-120.5, -5.5), Vec2::new(5.0, -113.0), Vec2::new(0.5, 100.0), Vec2::new(0.5, 100.0), Vec2::new(2.0, 100.0), Vec2::new(129.0, 2.0), 
-Vec2::new(129.0, 2.0), Vec2::new(129.0, 2.0), Vec2::new(-4.5, -115.0), Vec2::new(-4.5, -115.0), Vec2::new(-4.5, -115.0), Vec2::new(-115.5, -14.0), Vec2::new(-115.5, -14.0), Vec2::new(-115.5, -14.0)]];
-	let track_player = vec![vec![false, false, false, false, false, false, false, false, false, false, false, true, true, true, true], vec![false, false, false, false, false, false, false, false, false, false, false, false, false, true, true, true]];
+	let times = vec![
+		vec![1.0, 2.0],
+		vec![1.0, 2.0, 3.0, 4.0, 5.0, 10.0],
+		vec![2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5],
+	];
+	let indices = vec![
+		vec![4, 0],
+		vec![4, 3, 2, 1, 0, 0],
+		vec![0, 0, 0, 0, 0, 0, 0, 0],
+	];
+	let velocities = vec![
+		vec![200.0, 250.0],
+		vec![150.0, 160.0, 170.0, 180.0, 250.0, 230.0],
+		vec![260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0],
+	];
+	let angles = vec![
+		vec![0.0, 0.0],
+		vec![0.0, 90.0, 180.0, 270.0, 0.0, 0.0],
+		vec![0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0],
+	];
+	let track_player = vec![
+		vec![true, true],
+		vec![false, false, false, false, true, false],
+		vec![false, false, false, false, false, false, false, false]
+	];
 
 	let mut level_lengths = vec![];
 	for i in 0..times.len() {
@@ -150,6 +172,7 @@ Vec2::new(129.0, 2.0), Vec2::new(129.0, 2.0), Vec2::new(-4.5, -115.0), Vec2::new
 		times: times,
 		indices: indices,
 		velocities: velocities,
+		angles: angles,
 		track_player: track_player,
 		level: 0,
 		level_lengths: level_lengths,
@@ -159,24 +182,27 @@ Vec2::new(129.0, 2.0), Vec2::new(129.0, 2.0), Vec2::new(-4.5, -115.0), Vec2::new
 fn level_editor(
 	mut current_time: Local<f32>,
 	mut spawn_tracker: ResMut<SpawnTracker>,
-	player_query: Query<&PlayerInfo>,
 	windows: Query<&Window, With<PrimaryWindow>>,
 	keys: Res<ButtonInput<KeyCode>>,
 	time: Res<Time>,
 ) {
+	if *current_time == 0.0 {
+		spawn_tracker.level = spawn_tracker.times.len();
+	}
 	*current_time += time.delta_secs();
-	let player = player_query.single().expect("Could not find player");
 	let window = windows.single().expect("Could not find window");
 	let window_size = Vec2::new(window.width(), window.height());
 	if let Some(mut target) = window.cursor_position() {
 		target -= window_size / 2.0;
 		target.y = -target.y;
-		let velocity = target / 2.0;
+		let velocity = target.length();
+		let angle = target.normalize().to_angle();
 		let level = spawn_tracker.level;
 		let tracked = if keys.pressed(KeyCode::Space) {true} else {false};
 		if keys.just_pressed(KeyCode::Digit0) {
 			spawn_tracker.times[level].push(*current_time);
 			spawn_tracker.indices[level].push(0);
+			spawn_tracker.velocities[level].push(angle);
 			spawn_tracker.velocities[level].push(velocity);
 			spawn_tracker.track_player[level].push(tracked);
 		}
@@ -184,34 +210,39 @@ fn level_editor(
 			spawn_tracker.times[level].push(*current_time);
 			spawn_tracker.indices[level].push(1);
 			spawn_tracker.velocities[level].push(velocity);
+			spawn_tracker.velocities[level].push(angle);
 			spawn_tracker.track_player[level].push(tracked);
 		}
 		if keys.just_pressed(KeyCode::Digit2) {
 			spawn_tracker.times[level].push(*current_time);
 			spawn_tracker.indices[level].push(2);
 			spawn_tracker.velocities[level].push(velocity);
+			spawn_tracker.velocities[level].push(angle);
 			spawn_tracker.track_player[level].push(tracked);
 		}
 		if keys.just_pressed(KeyCode::Digit3) {
 			spawn_tracker.times[level].push(*current_time);
 			spawn_tracker.indices[level].push(3);
 			spawn_tracker.velocities[level].push(velocity);
+			spawn_tracker.velocities[level].push(angle);
 			spawn_tracker.track_player[level].push(tracked);
 		}
 		if keys.just_pressed(KeyCode::Digit4) {
 			spawn_tracker.times[level].push(*current_time);
 			spawn_tracker.indices[level].push(4);
 			spawn_tracker.velocities[level].push(velocity);
+			spawn_tracker.velocities[level].push(angle);
 			spawn_tracker.track_player[level].push(tracked);
 		}
 		if keys.just_pressed(KeyCode::Digit5) {
 			spawn_tracker.times[level].push(*current_time);
 			spawn_tracker.indices[level].push(5);
 			spawn_tracker.velocities[level].push(velocity);
+			spawn_tracker.velocities[level].push(angle);
 			spawn_tracker.track_player[level].push(tracked);
 		}
 		if keys.just_pressed(KeyCode::KeyP) {
-			println!("{:?}\n{:?}\n{:?}\n{:?}", spawn_tracker.times, spawn_tracker.indices, spawn_tracker.velocities, spawn_tracker.track_player);
+			println!("{:?}\n{:?}\n{:?}\n{:?}\n{:?}", spawn_tracker.times, spawn_tracker.indices, spawn_tracker.velocities, spawn_tracker.angles, spawn_tracker.track_player);
 		}
 		if keys.just_pressed(KeyCode::KeyL) {
 			spawn_tracker.level += 1;
@@ -240,22 +271,23 @@ fn spawn_molecules(
 	textures: Res<TextureAssets>,
 	time: Res<Time>,
 ) {
-	spawn_tracker.timer += time.delta_secs() * (1.0 + spawn_tracker.level as f32/20.0);
+	spawn_tracker.timer += time.delta_secs() * (1.0 + spawn_tracker.level as f32/100.0);
 	if spawn_tracker.timer > spawn_tracker.times[spawn_tracker.level][spawn_tracker.increment] {
 		let reactor = reactor_query.single().expect("Could not find reactor");
 		let player = player_query.single().expect("Could not find player");
 		let pos = Vec2::new(reactor.translation.x, reactor.translation.y - 48.0).extend(1.0);
 		let index = spawn_tracker.indices[spawn_tracker.level][spawn_tracker.increment];
-		let angle = if spawn_tracker.track_player[spawn_tracker.level][spawn_tracker.increment] {(player.translation.xy() - pos.xy()).normalize()} 
-		else {spawn_tracker.velocities[spawn_tracker.level][spawn_tracker.increment].normalize()};
-		spawn_molecule(&mut commands, &textures, pos, angle * spawn_tracker.velocities[spawn_tracker.level][spawn_tracker.increment].length(), index, get_molecule_radius(index), get_molecule_mass(index));
+		let angle = if spawn_tracker.track_player[spawn_tracker.level][spawn_tracker.increment] {(player.translation.xy() - pos.xy()).normalize()}
+			else {Vec2::from_angle((-spawn_tracker.angles[spawn_tracker.level][spawn_tracker.increment]).to_radians()).rotate(Vec2::from_angle(90.0_f32.to_radians()))};
+		let velocity = spawn_tracker.velocities[spawn_tracker.level][spawn_tracker.increment];
+		spawn_molecule(&mut commands, &textures, pos, angle * velocity, index, get_molecule_radius(index), get_molecule_mass(index));
 		if spawn_tracker.increment == spawn_tracker.level_lengths[spawn_tracker.level] - 1 {
 			spawn_tracker.increment = 0;
 			spawn_tracker.timer = 0.0;
 			if spawn_tracker.level == spawn_tracker.level_lengths.len() - 1 {
-				spawn_tracker.level += 1;
-			} else {
 				spawn_tracker.level = 0;
+			} else {
+				spawn_tracker.level += 1;
 			}
 		} else {
 			spawn_tracker.increment += 1;
@@ -275,9 +307,17 @@ fn spawn_molecule(commands: &mut Commands, textures: &Res<TextureAssets>, pos: V
 	];
 	let colour = colours[index];
 
+	let sprites = [
+		textures.star.clone(),
+		textures.ball.clone(),
+		textures.hoop.clone(),
+		textures.ball.clone(),
+		textures.hoop.clone(),
+	];
+
 	commands.spawn((
 		Sprite {
-			image: textures.circle.clone(),
+			image: sprites[index.clamp(0, sprites.len()-1)].clone(),
 			color: colour,
 			custom_size: Some(Vec2::new(radius * 2.0, radius * 2.0)),
 			..default()
@@ -290,9 +330,10 @@ fn spawn_molecule(commands: &mut Commands, textures: &Res<TextureAssets>, pos: V
 			vel,
 			index,
 			reacted: true,
-			reaction_cooldown: 0.5,
+			reaction_cooldown: 0.25,
 			radius,
 			mass,
+			spawn_growth: 0.0,
 		},
 	));
 }
@@ -303,7 +344,7 @@ pub struct Crosses;
 fn spawn_cross(commands: &mut Commands, textures: &Res<TextureAssets>, index: f32) {
 	commands.spawn((
 		Sprite {
-			image: textures.cross.clone(),
+			image: textures.dead.clone(),
 			custom_size: Some(Vec2::splat(64.0)),
 			..default()
 		},
@@ -329,7 +370,7 @@ fn spawn_bullet(commands: &mut Commands, textures: &Res<TextureAssets>, pos: Vec
 
 	commands.spawn((
 		Sprite {
-			image: textures.circle.clone(),
+			image: textures.triangle.clone(),
 			color: colour,
 			custom_size: Some(Vec2::new(radius * 2.0, radius * 2.0)),
 			..default()
@@ -378,6 +419,7 @@ fn move_bullet(
 			take_damage(entity, &mut p_info, &mut commands, &textures, &audio, &sfx);
 		} else {
 			b_transform.translation = (b_transform.translation.xy() + (120.0 * offset.normalize() * time.delta_secs())).extend(1.0);
+			b_transform.rotation = Quat::from_axis_angle(Vec3::Z, offset.to_angle() - 5.0*PI/4.0);
 		}
 	}
 }
@@ -393,9 +435,9 @@ fn valid_molecule_combination(a: usize, b: usize) -> ReactionInfo {
 		0 => match b {
 			0 => ReactionInfo::Reaction(vec![100, 101]),
 			1 => ReactionInfo::Reaction(vec![100, 0, 0]),
-			2 => ReactionInfo::Reaction(vec![100, 1, 0]),
-			3 => ReactionInfo::Reaction(vec![100, 2, 1]),
-			4 => ReactionInfo::Reaction(vec![100, 3, 3]),
+			2 => ReactionInfo::Reaction(vec![100, 1, 1, 0]),
+			3 => ReactionInfo::Reaction(vec![100, 2, 2, 0]),
+			4 => ReactionInfo::Reaction(vec![100, 3, 3, 0]),
 			_ => ReactionInfo::None,
 		}
 		1 => match b {
@@ -469,8 +511,8 @@ fn molecule_movement(
 					if m_info_a.reaction_cooldown + m_info_b.reaction_cooldown == 0.0 {
 						m_info_a.reacted = true;
 						m_info_b.reacted = true;
-						m_info_a.reaction_cooldown = 1.0;
-						m_info_b.reaction_cooldown = 1.0;
+						m_info_a.reaction_cooldown = 0.25;
+						m_info_b.reaction_cooldown = 0.25;
 						for output in products {
 							let pos = (transform_b.translation.xy() + offset/2.0 + rand::random::<f32>()).extend(0.0);
 							if output < 100 {
@@ -506,6 +548,8 @@ fn molecule_movement(
 	}
 
 	for (_, mut m_info, mut transform) in molecule_query.iter_mut() {
+		m_info.spawn_growth = (m_info.spawn_growth + time.delta_secs()*3.0).clamp(0.0, 1.0);
+		transform.scale = Vec2::splat(m_info.spawn_growth).extend(1.0);
 		m_info.reacted = false;
 		m_info.reaction_cooldown = (m_info.reaction_cooldown - time.delta_secs()).clamp(0.0, 10.0);
 		transform.translation.x += m_info.vel.x * time.delta_secs();
