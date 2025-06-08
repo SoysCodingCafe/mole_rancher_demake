@@ -39,6 +39,7 @@ impl Plugin for MoleculesPlugin {
 				move_bullet,
 				clamp_inside_reactor,
 				destroy_molecules,
+				deal_with_particles,
 			).chain().run_if(in_state(GameState::Playing)));
 	}
 }
@@ -141,7 +142,8 @@ fn spawn_reactor(
 		vec![0.0, 2.0, 4.0, 6.0, 10.0, 12.0],
 		vec![0.0, 0.5, 3.0, 3.5, 6.0, 6.5, 9.0, 9.5, 14.0],
 		vec![0.0, 2.0, 4.0, 5.0, 6.0, 7.0, 8.0, 8.5, 9.0, 9.5, 10.0, 15.0],
-		vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0],
+		vec![0.0, 0.4, 0.8, 1.2, 1.6, 2.0, 2.4, 2.8, 5.0],
+		vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0],
 	];
 	let indices = vec![
 		vec![4, 100],
@@ -150,6 +152,7 @@ fn spawn_reactor(
 		vec![4, 0, 3, 0, 2, 0, 1, 0, 100],
 		vec![2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 100],
 		vec![1, 1, 1, 1, 1, 1, 1, 1, 100],
+		vec![4, 4, 3, 3, 2, 2, 1, 1, 0, 0, 0, 100],
 	];
 	let velocities = vec![
 		vec![200.0, 0.0],
@@ -158,6 +161,7 @@ fn spawn_reactor(
 		vec![200.0, 300.0, 200.0, 300.0, 200.0, 300.0, 200.0, 300.0, 0.0],
 		vec![260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 0.0],
 		vec![220.0, 220.0, 220.0, 220.0, 220.0, 220.0, 220.0, 220.0, 0.0],
+		vec![260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 260.0, 0.0]
 	];
 	let angles = vec![
 		vec![0.0, 0.0],
@@ -166,6 +170,7 @@ fn spawn_reactor(
 		vec![180.0, 180.0, 0.0, 0.0, 270.0, 270.0, 45.0, 45.0, 0.0],
 		vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
 		vec![0.0, 315.0, 270.0, 225.0, 180.0, 135.0, 90.0, 45.0, 0.0],
+		vec![0.0, 180.0, 270.0, 90.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
 	];
 	let track_player = vec![
 		vec![false, false],
@@ -174,6 +179,7 @@ fn spawn_reactor(
 		vec![false, false, false, false, false, false, false, false, false],
 		vec![true, true, true, true, true, true, true, true, true, true, true, true],
 		vec![false, false, false, false, false, false, false, false, false],
+		vec![false, false, false, false, true, true, true, true, true, true, true, false],
 	];
 
 	let mut level_lengths = vec![];
@@ -310,6 +316,61 @@ fn spawn_molecules(
 	}
 }
 
+#[derive(Component)]
+pub struct Particle {
+	velocity: Vec2,
+	fade: f32,
+}
+
+fn deal_with_particles(
+	time: Res<Time>,
+	mut commands: Commands,
+	mut particle_query: Query<(Entity, &mut Transform, &mut Particle)>,
+) {
+	for (entity, mut transform, mut particle) in particle_query.iter_mut() {
+		particle.fade = (particle.fade - time.delta_secs()).clamp(0.0, 10.0);
+		if particle.fade == 0.0 {
+			commands.entity(entity).despawn();
+		} else {
+			transform.scale = Vec3::new(particle.fade, particle.fade, 1.0);
+			transform.translation += particle.velocity.extend(1.0);
+		}
+	}
+}
+
+fn spawn_particles(
+	commands: &mut Commands,
+	textures: &Res<TextureAssets>,
+	loc: Vec2,
+	color_index: usize,
+) {
+	let colours = [
+		Color::hsv(60.0, 0.82, 0.45),
+		Color::hsv(53.0, 0.88, 0.74),
+		Color::hsv(10.0, 0.77, 0.75),
+		Color::hsv(354.0, 0.45, 0.80),
+		Color::hsv(281.0, 0.53, 0.32),
+		Color::hsv(27.0, 0.47, 0.84),
+		Color::hsv(32.0, 0.14, 0.77),
+	];
+
+	for i in 0..8 {
+		commands.spawn((
+			Sprite {
+					image: textures.ball.clone(),
+					custom_size: Some(Vec2::new(10.0, 10.0)),
+					color: colours[color_index],
+					..default()
+			},
+			Transform::from_xyz(loc.x, loc.y, 1.0),
+			Particle {
+				velocity: Vec2::new(0.0, 1.0 + rand::random::<f32>()).rotate(Vec2::from_angle(rand::random::<f32>()*2.0*PI)),
+				fade: 1.0,
+			},
+		));
+	}
+}
+
 fn spawn_molecule(commands: &mut Commands, textures: &Res<TextureAssets>, pos: Vec3, vel: Vec2, index: usize, radius: f32, mass: f32) {
 	if index == 100 {return};
 	let colours = [
@@ -414,7 +475,7 @@ fn take_damage(
 		p_info.stun_duration = 0.4;
 		p_info.lives -= 1.0;
 		spawn_cross(&mut commands, &textures, p_info.lives as f32);
-		audio.play(sfx.radiation_hit.clone()).with_volume(0.1).with_playback_rate(1.0 - (2.0 - p_info.lives as f64) * 0.2);
+		audio.play(sfx.radiation_hit.clone()).with_volume(0.25).with_playback_rate(1.0 - (2.0 - p_info.lives as f64) * 0.2);
 	}
 	commands.entity(entity).despawn();
 }
@@ -524,6 +585,7 @@ fn molecule_movement(
 			match info {
 				ReactionInfo::None => (),
 				ReactionInfo::Reaction(products) => {
+					audio.play(sfx.ping.clone()).with_volume(0.4).with_playback_rate(0.75 + (rand::random::<f64>()/2.0));
 					if m_info_a.reaction_cooldown + m_info_b.reaction_cooldown == 0.0 {
 						m_info_a.reacted = true;
 						m_info_b.reacted = true;
@@ -539,7 +601,9 @@ fn molecule_movement(
 								match output {
 									100 => {
 										commands.entity(entity_a).despawn();
+										spawn_particles(&mut commands, &textures, transform_a.translation.xy(), m_info_a.index);
 										commands.entity(entity_b).despawn();
+										spawn_particles(&mut commands, &textures, transform_b.translation.xy(), m_info_b.index);
 									}
 									101 => {
 										spawn_bullet(&mut commands, &textures, pos, 6.0);
@@ -609,6 +673,7 @@ fn clamp_inside_reactor(mut molecule_query: Query<(&MoleculeInfo, &mut Transform
 fn destroy_molecules(
 	mut commands: Commands,
 	mut player_query: Query<&mut PlayerInfo>,
+	textures: Res<TextureAssets>,
 	molecule_query: Query<(Entity, &MoleculeInfo, &Transform)>,
 	bullet_query: Query<(Entity, &BulletInfo, &Transform), Without<MoleculeInfo>>,
 	weapon_collider_query: Query<&GlobalTransform, With<WeaponCollider>>,
@@ -625,7 +690,8 @@ fn destroy_molecules(
 					if offset.length() <= m_info.radius + 6.0 * wp_transform.scale.x {
 						p_info.score += m_info.index as f32 + 1.0;
 						commands.entity(entity).despawn();
-						audio.play(sfx.bounce_and_crackle.clone()).with_volume(0.1).with_playback_rate(0.5 + (rand::random::<f64>()));
+						spawn_particles(&mut commands, &textures, m_transform.translation.xy(), m_info.index);
+						audio.play(sfx.bounce_and_crackle.clone()).with_volume(0.45).with_playback_rate(0.5 + (rand::random::<f64>()));
 						break;
 					}
 				}
@@ -636,6 +702,7 @@ fn destroy_molecules(
 					let offset = m_transform.translation.xy() - w_transform.translation().xy();
 					if offset.length() <= b_info.radius + 6.0 * wp_transform.scale.x {
 						p_info.score += 1.0;
+						spawn_particles(&mut commands, &textures, m_transform.translation.xy(), 5);
 						commands.entity(entity).despawn();
 						break;
 					}

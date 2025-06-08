@@ -32,6 +32,8 @@ pub struct AudioAssets {
 	pub bat_swing: Handle<AudioSource>,
 	#[asset(path = "audio/bounce_and_crackle.ogg")]
 	pub bounce_and_crackle: Handle<AudioSource>,
+	#[asset(path = "audio/ping.ogg")]
+	pub ping: Handle<AudioSource>,
 	#[asset(path = "audio/radiation_hit.ogg")]
 	pub radiation_hit: Handle<AudioSource>,
 }

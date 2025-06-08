@@ -283,7 +283,7 @@ fn weapon_swing(
 						weapon_pivot.time_left = weapon_pivot.max_time;
 						weapon_pivot.held = true;
 						weapon_pivot.swinging = true;
-						*wind_handle = audio.play(sfx.wind_up.clone()).with_volume(0.1).with_playback_rate(0.875 + rand::random::<f64>()/4.0).handle();
+						*wind_handle = audio.play(sfx.wind_up.clone()).with_volume(0.2).with_playback_rate(0.875 + rand::random::<f64>()/4.0).handle();
 					}
 				}
 			}
@@ -295,7 +295,7 @@ fn weapon_swing(
 					if let Some(instance) = audio_instances.get_mut(&**&mut wind_handle) {
 						instance.pause(AudioTween::default());
 					}
-					audio.play(sfx.bat_swing.clone()).with_volume(0.1).with_playback_rate(0.5 + rand::random::<f64>());
+					audio.play(sfx.bat_swing.clone()).with_volume(0.25).with_playback_rate(0.5 + rand::random::<f64>());
 				}
 			}
 		}
