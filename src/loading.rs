@@ -56,12 +56,18 @@ pub struct TextureAssets {
     pub github: Handle<Image>,
 	#[asset(path = "textures/hoop.png")]
     pub hoop: Handle<Image>,
+	#[asset(path = "textures/atom.png")]
+    pub atom: Handle<Image>,
+	#[asset(path = "textures/plus.png")]
+    pub plus: Handle<Image>,
 	#[asset(path = "textures/rodney.png")]
 	pub rodney: Handle<Image>,
 	#[asset(path = "textures/star.png")]
     pub star: Handle<Image>,
 	#[asset(path = "textures/triangle.png")]
     pub triangle: Handle<Image>,
+	#[asset(path = "textures/squiggle.png")]
+    pub squiggle: Handle<Image>,
 	#[asset(path = "textures/weapon.png")]
     pub weapon: Handle<Image>,
 }

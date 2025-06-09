@@ -34,53 +34,93 @@ impl Default for ButtonColors {
 struct Retry;
 
 fn setup_retry(mut commands: Commands, textures: Res<TextureAssets>) {
-    commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
+    commands.spawn((
+		Sprite {
+            image: textures.ditheredbackground.clone(),
+            color: Color::linear_rgba(1.0, 1.0, 1.0, 1.0),
+			custom_size: Some(Vec2::new(1080.0, 810.0)),
+			..default()
+		},
+		Transform {
+			translation: Vec3::new(0.0, 0.0, 1.0),
+			..default()
+		},
+        Retry,
+	));
+    for y in (-810.0 as i32 / 2..=810.0 as i32 / 2).step_by(40.0 as usize) {
+        commands.spawn((
+            Sprite {
+                color: Color::linear_rgb(0.4, 0.64, 0.72),
+                custom_size: Some(Vec2::new(1080.0, 2.0)),
+                ..default()
+            },
+            Transform {
+                translation: Vec3::new(0.0, y as f32, 5.0),
                 ..default()
             },
             Retry,
-        ))
-        .with_children(|children| {
-            let button_colors = ButtonColors::default();
-            children
-                .spawn((
-                    Button,
-                    Node {
-                        width: Val::Px(140.0),
-                        height: Val::Px(50.0),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..Default::default()
-                    },
-                    BackgroundColor(button_colors.normal),
-                    button_colors,
-                    ChangeState(GameState::Playing),
-                ))
-                .with_child((
-                    Text::new("RETRY"),
-                    TextFont {
-                        font_size: 40.0,
-                        ..default()
-                    },
-                    TextColor(Color::linear_rgb(0.9, 0.9, 0.9)),
-                ));
-			children
-                .spawn((
-                    Node {
-                        width: Val::Px(140.0),
-                        height: Val::Px(330.0),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..Default::default()
-                    },
-                ));
-        });
+        ));
+    }
+    for x in (-1080.0 as i32 / 2..=1080.0 as i32 / 2).step_by(40.0 as usize) {
+        commands.spawn((
+            Sprite {
+                color: Color::linear_rgb(0.4, 0.64, 0.72),
+                custom_size: Some(Vec2::new(2.0, 810.0)),
+                ..default()
+            },
+            Transform {
+                translation: Vec3::new(x as f32, 0.0, 5.0),
+                ..default()
+            },
+            Retry,
+        ));
+    }
+    commands
+	.spawn((
+		Node {
+			position_type: PositionType::Absolute,
+			left: Val::Percent(50.0),
+			top: Val::Percent(50.0),
+			width: Val::Px(202.0),
+			height: Val::Px(50.0),
+			margin: UiRect {
+				left: Val::Px(-101.0),
+				top: Val::Px(-25.0),
+				..default()
+			},
+			justify_content: JustifyContent::Center,
+			align_items: AlignItems::Center,
+			..default()
+		},
+		Retry,
+	))
+	.with_children(|children| {
+		let button_colors = ButtonColors::default();
+		children
+			.spawn((
+				Button,
+				Node {
+					width: Val::Px(202.0),
+					height: Val::Px(50.0),
+					border: UiRect::all(Val::Px(2.0)),
+					justify_content: JustifyContent::Center,
+					align_items: AlignItems::Center,
+					..Default::default()
+				},
+				BorderColor(Color::linear_rgb(0.4, 0.64, 0.72)),
+				BackgroundColor(button_colors.normal),
+				button_colors,
+				ChangeState(GameState::Playing),
+			))
+			.with_child((
+				Text::new("RETRY"),
+				TextFont {
+					font_size: 35.0,
+					..default()
+				},
+				TextColor(Color::linear_rgb(0.9, 0.9, 0.9)),
+			));
+	});
     commands
         .spawn((
             Node {

@@ -353,18 +353,24 @@ fn spawn_particles(
 		Color::hsv(27.0, 0.47, 0.84),
 		Color::hsv(32.0, 0.14, 0.77),
 	];
-
-	for _i in 0..8 {
+	for _ in 0..8 {
+		let velocity = Vec2::new(0.0, 1.0 + rand::random::<f32>())
+			.rotate(Vec2::from_angle(rand::random::<f32>() * 2.0 * PI));
+		let angle = velocity.y.atan2(velocity.x);
 		commands.spawn((
 			Sprite {
-					image: textures.ball.clone(),
-					custom_size: Some(Vec2::new(10.0, 10.0)),
-					color: colours[color_index],
-					..default()
+				image: textures.squiggle.clone(),
+				custom_size: Some(Vec2::new(20.0, 20.0)),
+				color: colours[color_index],
+				..default()
 			},
-			Transform::from_xyz(loc.x, loc.y, 1.0),
+			Transform {
+				translation: Vec3::new(loc.x, loc.y, 1.0),
+				rotation: Quat::from_rotation_z(angle),
+				..default()
+			},
 			Particle {
-				velocity: Vec2::new(0.0, 1.0 + rand::random::<f32>()).rotate(Vec2::from_angle(rand::random::<f32>()*2.0*PI)),
+				velocity,
 				fade: 1.0,
 			},
 		));
@@ -387,8 +393,8 @@ fn spawn_molecule(commands: &mut Commands, textures: &Res<TextureAssets>, pos: V
 	let sprites = [
 		textures.star.clone(),
 		textures.ball.clone(),
-		textures.hoop.clone(),
-		textures.ball.clone(),
+		textures.plus.clone(),
+		textures.atom.clone(),
 		textures.hoop.clone(),
 	];
 
