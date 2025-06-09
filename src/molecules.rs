@@ -345,13 +345,13 @@ fn spawn_particles(
 	color_index: usize,
 ) {
 	let colours = [
+		Color::hsv(32.0, 0.14, 0.77),
 		Color::hsv(60.0, 0.82, 0.45),
 		Color::hsv(53.0, 0.88, 0.74),
 		Color::hsv(10.0, 0.77, 0.75),
 		Color::hsv(354.0, 0.45, 0.80),
-		Color::hsv(281.0, 0.53, 0.32),
 		Color::hsv(27.0, 0.47, 0.84),
-		Color::hsv(32.0, 0.14, 0.77),
+		Color::hsv(281.0, 0.53, 0.32),
 	];
 	for _ in 0..8 {
 		let velocity = Vec2::new(0.0, 1.0 + rand::random::<f32>())
@@ -380,13 +380,13 @@ fn spawn_particles(
 fn spawn_molecule(commands: &mut Commands, textures: &Res<TextureAssets>, pos: Vec3, vel: Vec2, index: usize, radius: f32, mass: f32) {
 	if index == 100 {return};
 	let colours = [
+		Color::hsv(32.0, 0.14, 0.77),
 		Color::hsv(60.0, 0.82, 0.45),
 		Color::hsv(53.0, 0.88, 0.74),
 		Color::hsv(10.0, 0.77, 0.75),
 		Color::hsv(354.0, 0.45, 0.80),
-		Color::hsv(281.0, 0.53, 0.32),
 		Color::hsv(27.0, 0.47, 0.84),
-		Color::hsv(32.0, 0.14, 0.77),
+		Color::hsv(281.0, 0.53, 0.32),
 	];
 	let colour = colours[index];
 
@@ -418,7 +418,14 @@ fn spawn_molecule(commands: &mut Commands, textures: &Res<TextureAssets>, pos: V
 			mass,
 			spawn_growth: 0.0,
 		},
-	));
+	)).with_child(
+		Sprite {
+			image: sprites[index.clamp(0, sprites.len()-1)].clone(),
+			color: Color::linear_rgb(1.0, 1.0, 1.0),
+			custom_size: Some(Vec2::new(radius * 2.0 + 6.0, radius * 2.0 + 6.0)),
+			..default()
+		}
+	);
 }
 
 #[derive(Component)]
@@ -441,13 +448,13 @@ fn spawn_cross(commands: &mut Commands, textures: &Res<TextureAssets>, index: f3
 
 fn spawn_bullet(commands: &mut Commands, textures: &Res<TextureAssets>, pos: Vec3, radius: f32) {
 	let colours = [
+		Color::hsv(32.0, 0.14, 0.77),
 		Color::hsv(60.0, 0.82, 0.45),
 		Color::hsv(53.0, 0.88, 0.74),
 		Color::hsv(10.0, 0.77, 0.75),
 		Color::hsv(354.0, 0.45, 0.80),
-		Color::hsv(281.0, 0.53, 0.32),
 		Color::hsv(27.0, 0.47, 0.84),
-		Color::hsv(32.0, 0.14, 0.77),
+		Color::hsv(281.0, 0.53, 0.32),
 	];
 	let colour = colours[5];
 
@@ -465,7 +472,14 @@ fn spawn_bullet(commands: &mut Commands, textures: &Res<TextureAssets>, pos: Vec
 		BulletInfo {
 			radius,
 		},
-	));
+	)).with_child(
+		Sprite {
+			image: textures.triangle.clone(),
+			color: Color::linear_rgb(1.0, 1.0, 1.0),
+			custom_size: Some(Vec2::new(radius * 2.0 + 6.0, radius * 2.0 + 6.0)),
+			..default()
+		}
+	);;
 }
 
 fn take_damage(
