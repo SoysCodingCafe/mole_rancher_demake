@@ -63,7 +63,7 @@ fn setup_retry(mut commands: Commands, textures: Res<TextureAssets>) {
                     ChangeState(GameState::Playing),
                 ))
                 .with_child((
-                    Text::new("Retry"),
+                    Text::new("RETRY"),
                     TextFont {
                         font_size: 40.0,
                         ..default()
